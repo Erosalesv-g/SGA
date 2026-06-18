@@ -1,0 +1,14 @@
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Variables de entorno (si en el futuro creas alguno)
+.env
+.env.local
+
+# Compresión / respaldos
+*.zip
+*.rar
+
+# Editor (a nivel raíz del workspace)
+.vscode/
