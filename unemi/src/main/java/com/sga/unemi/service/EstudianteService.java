@@ -85,6 +85,13 @@ public class EstudianteService {
         estudianteRepository.save(estudiante);
     }
 
+    public void activarEstudiante(UUID id) {
+        Estudiante estudiante = estudianteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+        estudiante.setActivo(true);
+        estudianteRepository.save(estudiante);
+    }
+
     private EstudianteResponse toResponse(Estudiante e) {
         return new EstudianteResponse(e.getId(), e.getNombre(), e.getEmail(),
                 e.getCodigo(), e.getNivel(), e.getSeccion(), e.isActivo());

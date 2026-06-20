@@ -209,6 +209,24 @@
     flex-direction: column;
   }
   .login-left {
-    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: auto;
+    padding: 1px;
+  }
+  .login-rings {
+    display: none;
+  }
+  .login-illustration {
+    display: none;
+  }
+  .login-logo-small {
+    width: 100px;
+    height: 100px;
+  }
+  .login-brand-text {
+    font-size: 15px;
   }
 }

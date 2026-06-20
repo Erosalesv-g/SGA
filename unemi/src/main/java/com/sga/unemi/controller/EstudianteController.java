@@ -44,4 +44,10 @@ public class EstudianteController {
         estudianteService.desactivarEstudiante(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}/activar")
+    public ResponseEntity<Void> activar(@PathVariable UUID id) {
+        estudianteService.activarEstudiante(id);
+        return ResponseEntity.noContent().build();
+    }
 }
