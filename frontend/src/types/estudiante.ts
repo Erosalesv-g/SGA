@@ -5,6 +5,7 @@ export interface EstudianteRequest {
   codigo: string;
   nivel: string;
   seccion: string;
+  representanteId: string | null;
 }
 
 export interface EstudianteResponse {
@@ -15,4 +16,6 @@ export interface EstudianteResponse {
   nivel: string;
   seccion: string;
   activo: boolean;
+  representanteId: string | null;
+  representanteNombre: string | null;
 }

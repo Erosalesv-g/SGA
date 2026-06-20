@@ -15,6 +15,13 @@ public class Estudiante extends Usuario {
     @Column(nullable = false)
     private String seccion;
 
+    @ManyToOne
+    @JoinColumn(name = "representante_id")
+    private Usuario representante;
+
+    public Usuario getRepresentante() { return representante; }
+    public void setRepresentante(Usuario representante) { this.representante = representante; }
+
     // Getters y Setters
     public String getCodigo() { return codigo; }
     public void setCodigo(String codigo) { this.codigo = codigo; }

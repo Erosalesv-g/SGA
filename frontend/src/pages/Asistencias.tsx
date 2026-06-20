@@ -3,6 +3,7 @@ import apiClient from '../api/client';
 import type { AsistenciaRequest, AsistenciaResponse } from '../types/asistencia';
 import type { EstudianteResponse } from '../types/estudiante';
 import type { MateriaResponse } from '../types/materia';
+import type { UsuarioBasico } from '../types/comunicado';
 import './Asistencias.css';
 
 const ESTADOS: Record<string, string> = {
@@ -13,6 +14,10 @@ const ESTADOS: Record<string, string> = {
 };
 
 function Asistencias() {
+  const rol = localStorage.getItem('rol') || '';
+  const emailActual = localStorage.getItem('email') || '';
+  const puedeEditar = rol === 'RECTOR' || rol === 'INSPECTOR' || rol === 'DOCENTE';
+
   const [asistencias, setAsistencias] = useState<AsistenciaResponse[]>([]);
   const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
   const [materias, setMaterias] = useState<MateriaResponse[]>([]);
@@ -32,14 +37,34 @@ function Asistencias() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [asisRes, estRes, matRes] = await Promise.all([
-        apiClient.get<AsistenciaResponse[]>('/asistencias'),
+      const [estRes, matRes] = await Promise.all([
         apiClient.get<EstudianteResponse[]>('/estudiantes'),
         apiClient.get<MateriaResponse[]>('/materias'),
       ]);
-      setAsistencias(asisRes.data);
       setEstudiantes(estRes.data);
       setMaterias(matRes.data);
+
+      if (rol === 'ESTUDIANTE') {
+        const yo = estRes.data.find((e) => e.email === emailActual);
+        if (yo) {
+          const asisRes = await apiClient.get<AsistenciaResponse[]>(`/asistencias/estudiante/${yo.id}`);
+          setAsistencias(asisRes.data);
+        } else {
+          setAsistencias([]);
+        }
+      } else if (rol === 'REPRESENTANTE') {
+        const usuRes = await apiClient.get<UsuarioBasico[]>('/usuarios');
+        const miUsuario = usuRes.data.find((u) => u.email === emailActual);
+        const misEstudianteIds = estRes.data
+          .filter((e) => e.representanteId === miUsuario?.id)
+          .map((e) => e.id);
+        const todasRes = await apiClient.get<AsistenciaResponse[]>('/asistencias');
+        const deMisRepresentados = todasRes.data.filter((a) => misEstudianteIds.includes(a.estudianteId));
+        setAsistencias(deMisRepresentados);
+      } else {
+        const asisRes = await apiClient.get<AsistenciaResponse[]>('/asistencias');
+        setAsistencias(asisRes.data);
+      }
     } catch {
       setError('No se pudieron cargar los datos');
     } finally {
@@ -107,9 +132,11 @@ function Asistencias() {
     <div className="asistencias-container">
       <div className="asistencias-header">
         <h1>Asistencia</h1>
-        <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantes.length === 0 || materias.length === 0}>
-          + Nuevo registro
-        </button>
+        {puedeEditar && (
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantes.length === 0 || materias.length === 0}>
+            + Nuevo registro
+          </button>
+        )}
       </div>
 
       <div className="asistencias-table-wrapper">
@@ -125,7 +152,7 @@ function Asistencias() {
                 <th>Materia</th>
                 <th>Estado</th>
                 <th>Fecha</th>
-                <th>Acciones</th>
+                {puedeEditar && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -139,18 +166,20 @@ function Asistencias() {
                     </span>
                   </td>
                   <td>{a.fecha}</td>
-                  <td>
-                    <div className="tabla-acciones">
-                      {a.estado === 'A' && (
-                        <button className="btn-accion btn-justificar" onClick={() => handleJustificar(a.id)}>
-                          Justificar
+                  {puedeEditar && (
+                    <td>
+                      <div className="tabla-acciones">
+                        {a.estado === 'A' && (
+                          <button className="btn-accion btn-justificar" onClick={() => handleJustificar(a.id)}>
+                            Justificar
+                          </button>
+                        )}
+                        <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(a.id)}>
+                          Eliminar
                         </button>
-                      )}
-                      <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(a.id)}>
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

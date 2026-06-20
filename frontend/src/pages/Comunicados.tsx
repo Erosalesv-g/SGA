@@ -6,6 +6,10 @@ import './Comunicados.css';
 const ROLES = ['RECTOR', 'INSPECTOR', 'DOCENTE', 'ESTUDIANTE', 'REPRESENTANTE', 'ORIENTADOR'];
 
 function Comunicados() {
+  const rol = localStorage.getItem('rol') || '';
+  const emailActual = localStorage.getItem('email') || '';
+  const puedePublicar = rol === 'RECTOR' || rol === 'DOCENTE' || rol === 'INSPECTOR' || rol === 'ORIENTADOR';
+
   const [comunicados, setComunicados] = useState<ComunicadoResponse[]>([]);
   const [usuarioActualId, setUsuarioActualId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -20,17 +24,26 @@ function Comunicados() {
     destinatarioRol: 'DOCENTE',
   });
 
-  const cargarDatos = async () => {
+ const cargarDatos = async () => {
     setLoading(true);
     try {
-      const emailActual = localStorage.getItem('email') || '';
-      const [comRes, usuRes] = await Promise.all([
-        apiClient.get<ComunicadoResponse[]>('/comunicados'),
+      const [usuRes, comRes] = await Promise.all([
         apiClient.get<UsuarioBasico[]>('/usuarios'),
+        apiClient.get<ComunicadoResponse[]>('/comunicados'),
       ]);
-      setComunicados(comRes.data);
+
       const usuarioActual = usuRes.data.find((u) => u.email === emailActual);
+      const miId = usuarioActual?.id || '';
       if (usuarioActual) setUsuarioActualId(usuarioActual.id);
+
+      if (rol === 'RECTOR') {
+        setComunicados(comRes.data);
+      } else {
+        const filtrados = comRes.data.filter(
+          (c) => c.destinatarioRol === rol || c.remitenteId === miId
+        );
+        setComunicados(filtrados);
+      }
     } catch {
       setError('No se pudieron cargar los datos');
     } finally {
@@ -84,9 +97,11 @@ function Comunicados() {
     <div className="comunicados-container">
       <div className="comunicados-header">
         <h1>Comunicados</h1>
-        <button className="btn-nuevo" onClick={abrirNuevo} disabled={!usuarioActualId}>
-          + Nuevo comunicado
-        </button>
+        {puedePublicar && (
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={!usuarioActualId}>
+            + Nuevo comunicado
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -105,11 +120,13 @@ function Comunicados() {
                 Por {c.remitenteNombre} · {new Date(c.fechaEnvio).toLocaleString()}
               </p>
               <p className="comunicado-contenido">{c.contenido}</p>
-              <div className="tabla-acciones" style={{ marginTop: '12px' }}>
-                <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
-                  Eliminar
-                </button>
-              </div>
+              {puedePublicar && (
+                <div className="tabla-acciones" style={{ marginTop: '12px' }}>
+                  <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
+                    Eliminar
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

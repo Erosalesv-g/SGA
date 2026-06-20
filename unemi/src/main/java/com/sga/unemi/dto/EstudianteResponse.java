@@ -11,9 +11,12 @@ public class EstudianteResponse {
     private String nivel;
     private String seccion;
     private boolean activo;
+    private UUID representanteId;
+    private String representanteNombre;
 
     public EstudianteResponse(UUID id, String nombre, String email, String codigo,
-                               String nivel, String seccion, boolean activo) {
+                               String nivel, String seccion, boolean activo,
+                               UUID representanteId, String representanteNombre) {
         this.id = id;
         this.nombre = nombre;
         this.email = email;
@@ -21,6 +24,8 @@ public class EstudianteResponse {
         this.nivel = nivel;
         this.seccion = seccion;
         this.activo = activo;
+        this.representanteId = representanteId;
+        this.representanteNombre = representanteNombre;
     }
 
     public UUID getId() { return id; }
@@ -30,4 +35,6 @@ public class EstudianteResponse {
     public String getNivel() { return nivel; }
     public String getSeccion() { return seccion; }
     public boolean isActivo() { return activo; }
+    public UUID getRepresentanteId() { return representanteId; }
+    public String getRepresentanteNombre() { return representanteNombre; }
 }

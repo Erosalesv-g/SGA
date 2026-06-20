@@ -4,6 +4,7 @@ import com.sga.unemi.dto.EstudianteRequest;
 import com.sga.unemi.dto.EstudianteResponse;
 import com.sga.unemi.model.Estudiante;
 import com.sga.unemi.model.Rol;
+import com.sga.unemi.model.Usuario;
 import com.sga.unemi.repository.EstudianteRepository;
 import com.sga.unemi.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -51,6 +52,7 @@ public class EstudianteService {
         estudiante.setCodigo(request.getCodigo());
         estudiante.setNivel(request.getNivel());
         estudiante.setSeccion(request.getSeccion());
+        asignarRepresentante(estudiante, request.getRepresentanteId());
 
         Estudiante guardado = estudianteRepository.save(estudiante);
         return toResponse(guardado);
@@ -69,6 +71,7 @@ public class EstudianteService {
         estudiante.setNombre(request.getNombre());
         estudiante.setNivel(request.getNivel());
         estudiante.setSeccion(request.getSeccion());
+        asignarRepresentante(estudiante, request.getRepresentanteId());
 
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
             estudiante.setPasswordHash(passwordEncoder.encode(request.getPassword()));
@@ -92,8 +95,23 @@ public class EstudianteService {
         estudianteRepository.save(estudiante);
     }
 
+    private void asignarRepresentante(Estudiante estudiante, UUID representanteId) {
+        if (representanteId != null) {
+            Usuario representante = usuarioRepository.findById(representanteId)
+                    .orElseThrow(() -> new RuntimeException("Representante no encontrado"));
+            estudiante.setRepresentante(representante);
+        } else {
+            estudiante.setRepresentante(null);
+        }
+    }
+
     private EstudianteResponse toResponse(Estudiante e) {
-        return new EstudianteResponse(e.getId(), e.getNombre(), e.getEmail(),
-                e.getCodigo(), e.getNivel(), e.getSeccion(), e.isActivo());
+        Usuario rep = e.getRepresentante();
+        return new EstudianteResponse(
+                e.getId(), e.getNombre(), e.getEmail(),
+                e.getCodigo(), e.getNivel(), e.getSeccion(), e.isActivo(),
+                rep != null ? rep.getId() : null,
+                rep != null ? rep.getNombre() : null
+        );
     }
 }

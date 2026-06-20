@@ -4,11 +4,16 @@ import type { CalificacionRequest, CalificacionResponse } from '../types/calific
 import type { EstudianteResponse } from '../types/estudiante';
 import type { DocenteResponse } from '../types/docente';
 import type { MateriaResponse } from '../types/materia';
+import type { UsuarioBasico } from '../types/comunicado';
 import './Calificaciones.css';
 
 const TIPOS = ['PARCIAL', 'EXAMEN', 'TAREA', 'PROYECTO'];
 
 function Calificaciones() {
+  const rol = localStorage.getItem('rol') || '';
+  const emailActual = localStorage.getItem('email') || '';
+  const puedeEditar = rol === 'RECTOR' || rol === 'DOCENTE';
+
   const [calificaciones, setCalificaciones] = useState<CalificacionResponse[]>([]);
   const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
   const [docentes, setDocentes] = useState<DocenteResponse[]>([]);
@@ -32,16 +37,41 @@ function Calificaciones() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [califRes, estRes, docRes, matRes] = await Promise.all([
-        apiClient.get<CalificacionResponse[]>('/calificaciones'),
+      const [estRes, docRes, matRes] = await Promise.all([
         apiClient.get<EstudianteResponse[]>('/estudiantes'),
         apiClient.get<DocenteResponse[]>('/docentes'),
         apiClient.get<MateriaResponse[]>('/materias'),
       ]);
-      setCalificaciones(califRes.data);
       setEstudiantes(estRes.data);
       setDocentes(docRes.data);
       setMaterias(matRes.data);
+
+      if (rol === 'ESTUDIANTE') {
+        const yo = estRes.data.find((e) => e.email === emailActual);
+        if (yo) {
+          const califRes = await apiClient.get<CalificacionResponse[]>(`/calificaciones/estudiante/${yo.id}`);
+          setCalificaciones(califRes.data);
+        } else {
+          setCalificaciones([]);
+        }
+      } else if (rol === 'DOCENTE') {
+        const yo = docRes.data.find((d) => d.email === emailActual);
+        const todasRes = await apiClient.get<CalificacionResponse[]>('/calificaciones');
+        const propias = yo ? todasRes.data.filter((c) => c.docenteId === yo.id) : [];
+        setCalificaciones(propias);
+      } else if (rol === 'REPRESENTANTE') {
+        const usuRes = await apiClient.get<UsuarioBasico[]>('/usuarios');
+        const miUsuario = usuRes.data.find((u) => u.email === emailActual);
+        const misEstudianteIds = estRes.data
+          .filter((e) => e.representanteId === miUsuario?.id)
+          .map((e) => e.id);
+        const todasRes = await apiClient.get<CalificacionResponse[]>('/calificaciones');
+        const deMisRepresentados = todasRes.data.filter((c) => misEstudianteIds.includes(c.estudianteId));
+        setCalificaciones(deMisRepresentados);
+      } else {
+        const todasRes = await apiClient.get<CalificacionResponse[]>('/calificaciones');
+        setCalificaciones(todasRes.data);
+      }
     } catch {
       setError('No se pudieron cargar los datos');
     } finally {
@@ -122,17 +152,12 @@ function Calificaciones() {
     <div className="calificaciones-container">
       <div className="calificaciones-header">
         <h1>Calificaciones</h1>
-        <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantes.length === 0 || materias.length === 0}>
-          + Nueva calificación
-        </button>
+        {puedeEditar && (
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantes.length === 0 || materias.length === 0}>
+            + Nueva calificación
+          </button>
+        )}
       </div>
-
-      {estudiantes.length === 0 && (
-        <p className="calificaciones-vacio">Necesitas al menos un estudiante registrado para crear calificaciones.</p>
-      )}
-      {materias.length === 0 && (
-        <p className="calificaciones-vacio">Necesitas al menos una materia registrada para crear calificaciones.</p>
-      )}
 
       <div className="calificaciones-table-wrapper">
         {loading ? (
@@ -149,7 +174,7 @@ function Calificaciones() {
                 <th>Tipo</th>
                 <th>Nota</th>
                 <th>Fecha</th>
-                <th>Acciones</th>
+                {puedeEditar && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -165,16 +190,18 @@ function Calificaciones() {
                     </span>
                   </td>
                   <td>{c.fechaRegistro}</td>
-                  <td>
-                    <div className="tabla-acciones">
-                      <button className="btn-accion btn-editar" onClick={() => abrirEditar(c)}>
-                        Editar
-                      </button>
-                      <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
+                  {puedeEditar && (
+                    <td>
+                      <div className="tabla-acciones">
+                        <button className="btn-accion btn-editar" onClick={() => abrirEditar(c)}>
+                          Editar
+                        </button>
+                        <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 import apiClient from '../api/client';
 import type { BoletinResponse, AsistenciaResumenResponse } from '../types/reporte';
 import type { EstudianteResponse } from '../types/estudiante';
+import type { UsuarioBasico } from '../types/comunicado';
 import './Reportes.css';
 
 function Reportes() {
-  const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
+  const rol = localStorage.getItem('rol') || '';
+  const emailActual = localStorage.getItem('email') || '';
+  const esEstudiante = rol === 'ESTUDIANTE';
+  const esRepresentante = rol === 'REPRESENTANTE';
+
+  const [estudiantesVisibles, setEstudiantesVisibles] = useState<EstudianteResponse[]>([]);
   const [estudianteId, setEstudianteId] = useState('');
   const [boletin, setBoletin] = useState<BoletinResponse | null>(null);
   const [resumenAsistencia, setResumenAsistencia] = useState<AsistenciaResumenResponse | null>(null);
@@ -18,9 +24,20 @@ function Reportes() {
       setLoading(true);
       try {
         const res = await apiClient.get<EstudianteResponse[]>('/estudiantes');
-        setEstudiantes(res.data);
-        if (res.data.length > 0) {
-          setEstudianteId(res.data[0].id);
+
+        if (esEstudiante) {
+          const yo = res.data.find((e) => e.email === emailActual);
+          setEstudiantesVisibles(yo ? [yo] : []);
+          if (yo) setEstudianteId(yo.id);
+        } else if (esRepresentante) {
+          const usuRes = await apiClient.get<UsuarioBasico[]>('/usuarios');
+          const miUsuario = usuRes.data.find((u) => u.email === emailActual);
+          const misHijos = res.data.filter((e) => e.representanteId === miUsuario?.id);
+          setEstudiantesVisibles(misHijos);
+          if (misHijos.length > 0) setEstudianteId(misHijos[0].id);
+        } else {
+          setEstudiantesVisibles(res.data);
+          if (res.data.length > 0) setEstudianteId(res.data[0].id);
         }
       } catch {
         setError('No se pudieron cargar los estudiantes');
@@ -59,22 +76,26 @@ function Reportes() {
     <div className="reportes-container">
       <div className="reportes-header">
         <h1>Reportes</h1>
-        <div className="form-group reportes-selector">
-          <label>Seleccionar estudiante</label>
-          <select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)} disabled={loading}>
-            {estudiantes.map((e) => (
-              <option key={e.id} value={e.id}>{e.nombre}</option>
-            ))}
-          </select>
-        </div>
+        {!esEstudiante && estudiantesVisibles.length > 0 && (
+          <div className="form-group reportes-selector">
+            <label>{esRepresentante ? 'Seleccionar representado' : 'Seleccionar estudiante'}</label>
+            <select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)} disabled={loading}>
+              {estudiantesVisibles.map((e) => (
+                <option key={e.id} value={e.id}>{e.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {error && <p className="reportes-vacio">{error}</p>}
 
       {cargandoReporte ? (
         <p className="reportes-vacio">Generando reportes...</p>
-      ) : estudiantes.length === 0 ? (
-        <p className="reportes-vacio">No hay estudiantes registrados.</p>
+      ) : !estudianteId ? (
+        <p className="reportes-vacio">
+          {esRepresentante ? 'No tienes ningún estudiante representado vinculado.' : 'No hay datos de estudiante disponibles.'}
+        </p>
       ) : (
         <div className="reportes-grid">
           <div className="reporte-card">
@@ -103,7 +124,7 @@ function Reportes() {
                 </div>
               </>
             ) : (
-              <p className="reportes-vacio">Este estudiante no tiene calificaciones registradas.</p>
+              <p className="reportes-vacio">No tiene calificaciones registradas.</p>
             )}
           </div>
 

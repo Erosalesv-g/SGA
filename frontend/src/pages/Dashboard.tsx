@@ -40,13 +40,16 @@ const MENU_BY_ROLE: Record<string, MenuItem[]> = {
   ],
   ESTUDIANTE: [
     { label: 'Calificaciones', key: 'calificaciones' },
+    { label: 'Asistencia', key: 'asistencia' },
     { label: 'Horarios', key: 'horarios' },
     { label: 'Comunicados', key: 'comunicados' },
+    { label: 'Reportes', key: 'reportes' },
   ],
   REPRESENTANTE: [
     { label: 'Calificaciones', key: 'calificaciones' },
     { label: 'Asistencia', key: 'asistencia' },
     { label: 'Comunicados', key: 'comunicados' },
+    { label: 'Reportes', key: 'reportes' },
   ],
   ORIENTADOR: [
     { label: 'Estudiantes', key: 'estudiantes' },

@@ -1,5 +1,7 @@
 package com.sga.unemi.dto;
 
+import java.util.UUID;
+
 public class EstudianteRequest {
 
     private String nombre;
@@ -8,6 +10,7 @@ public class EstudianteRequest {
     private String codigo;
     private String nivel;
     private String seccion;
+    private UUID representanteId;
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
@@ -26,4 +29,7 @@ public class EstudianteRequest {
 
     public String getSeccion() { return seccion; }
     public void setSeccion(String seccion) { this.seccion = seccion; }
+
+    public UUID getRepresentanteId() { return representanteId; }
+    public void setRepresentanteId(UUID representanteId) { this.representanteId = representanteId; }
 }

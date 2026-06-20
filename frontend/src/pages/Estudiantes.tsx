@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import apiClient from '../api/client';
 import type { EstudianteRequest, EstudianteResponse } from '../types/estudiante';
+import type { UsuarioBasico } from '../types/comunicado';
 import './Estudiantes.css';
 
 const NIVELES = ['1ro', '2do', '3ro', '4to', '5to', '6to', '7mo', '8vo', '9no', '10mo', '1ro Bach', '2do Bach', '3ro Bach'];
 
 function Estudiantes() {
   const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
+  const [representantes, setRepresentantes] = useState<UsuarioBasico[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -20,13 +22,18 @@ function Estudiantes() {
     codigo: '',
     nivel: '',
     seccion: '',
+    representanteId: null,
   });
 
   const cargarEstudiantes = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get<EstudianteResponse[]>('/estudiantes');
-      setEstudiantes(response.data);
+      const [estRes, usuRes] = await Promise.all([
+        apiClient.get<EstudianteResponse[]>('/estudiantes'),
+        apiClient.get<UsuarioBasico[]>('/usuarios'),
+      ]);
+      setEstudiantes(estRes.data);
+      setRepresentantes(usuRes.data.filter((u) => u.rol === 'REPRESENTANTE'));
     } catch {
       setError('No se pudieron cargar los estudiantes');
     } finally {
@@ -40,7 +47,7 @@ function Estudiantes() {
 
   const abrirNuevo = () => {
     setEditandoId(null);
-    setForm({ nombre: '', email: '', password: '', codigo: '', nivel: '', seccion: '' });
+    setForm({ nombre: '', email: '', password: '', codigo: '', nivel: '', seccion: '', representanteId: null });
     setError('');
     setModalAbierto(true);
   };
@@ -54,6 +61,7 @@ function Estudiantes() {
       codigo: estudiante.codigo,
       nivel: estudiante.nivel,
       seccion: estudiante.seccion,
+      representanteId: estudiante.representanteId,
     });
     setError('');
     setModalAbierto(true);
@@ -63,8 +71,9 @@ function Estudiantes() {
     setModalAbierto(false);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: name === 'representanteId' && value === '' ? null : value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,6 +138,7 @@ function Estudiantes() {
                 <th>Email</th>
                 <th>Nivel</th>
                 <th>Sección</th>
+                <th>Representante</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -141,6 +151,7 @@ function Estudiantes() {
                   <td>{est.email}</td>
                   <td>{est.nivel}</td>
                   <td>{est.seccion}</td>
+                  <td>{est.representanteNombre || '—'}</td>
                   <td>
                     <span className={`badge ${est.activo ? 'badge-activo' : 'badge-inactivo'}`}>
                       {est.activo ? 'Activo' : 'Inactivo'}
@@ -223,6 +234,16 @@ function Estudiantes() {
               <div className="form-group">
                 <label>Sección</label>
                 <input name="seccion" value={form.seccion} onChange={handleChange} required placeholder="Ej: A" />
+              </div>
+
+              <div className="form-group">
+                <label>Representante (opcional)</label>
+                <select name="representanteId" value={form.representanteId || ''} onChange={handleChange}>
+                  <option value="">Sin representante asignado</option>
+                  {representantes.map((r) => (
+                    <option key={r.id} value={r.id}>{r.nombre} ({r.email})</option>
+                  ))}
+                </select>
               </div>
 
               <div className="modal-actions">

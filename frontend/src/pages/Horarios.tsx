@@ -8,6 +8,10 @@ import './Horarios.css';
 const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
 
 function Horarios() {
+  const rol = localStorage.getItem('rol') || '';
+  const emailActual = localStorage.getItem('email') || '';
+  const puedeEditar = rol === 'RECTOR';
+
   const [horarios, setHorarios] = useState<HorarioResponse[]>([]);
   const [docentes, setDocentes] = useState<DocenteResponse[]>([]);
   const [materias, setMaterias] = useState<MateriaResponse[]>([]);
@@ -31,14 +35,25 @@ function Horarios() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [horRes, docRes, matRes] = await Promise.all([
-        apiClient.get<HorarioResponse[]>('/horarios'),
+      const [docRes, matRes] = await Promise.all([
         apiClient.get<DocenteResponse[]>('/docentes'),
         apiClient.get<MateriaResponse[]>('/materias'),
       ]);
-      setHorarios(horRes.data);
       setDocentes(docRes.data);
       setMaterias(matRes.data);
+
+      if (rol === 'DOCENTE') {
+        const yo = docRes.data.find((d) => d.email === emailActual);
+        if (yo) {
+          const horRes = await apiClient.get<HorarioResponse[]>(`/horarios/docente/${yo.id}`);
+          setHorarios(horRes.data);
+        } else {
+          setHorarios([]);
+        }
+      } else {
+        const horRes = await apiClient.get<HorarioResponse[]>('/horarios');
+        setHorarios(horRes.data);
+      }
     } catch {
       setError('No se pudieron cargar los datos');
     } finally {
@@ -120,9 +135,11 @@ function Horarios() {
     <div className="horarios-container">
       <div className="horarios-header">
         <h1>Horarios</h1>
-        <button className="btn-nuevo" onClick={abrirNuevo} disabled={docentes.length === 0 || materias.length === 0}>
-          + Nuevo horario
-        </button>
+        {puedeEditar && (
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={docentes.length === 0 || materias.length === 0}>
+            + Nuevo horario
+          </button>
+        )}
       </div>
 
       <div className="horarios-table-wrapper">
@@ -140,7 +157,7 @@ function Horarios() {
                 <th>Hora</th>
                 <th>Aula</th>
                 <th>Período</th>
-                <th>Acciones</th>
+                {puedeEditar && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -152,16 +169,18 @@ function Horarios() {
                   <td>{h.horaInicio.slice(0, 5)} - {h.horaFin.slice(0, 5)}</td>
                   <td>{h.aula || '—'}</td>
                   <td>{h.periodo}</td>
-                  <td>
-                    <div className="tabla-acciones">
-                      <button className="btn-accion btn-editar" onClick={() => abrirEditar(h)}>
-                        Editar
-                      </button>
-                      <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(h.id)}>
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
+                  {puedeEditar && (
+                    <td>
+                      <div className="tabla-acciones">
+                        <button className="btn-accion btn-editar" onClick={() => abrirEditar(h)}>
+                          Editar
+                        </button>
+                        <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(h.id)}>
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
