@@ -1,17 +1,15 @@
 # Sistema de Gestión Académica (SGA)
 
-Sistema de gestión académica para la Unidad Educativa Fiscal "Durán", desarrollado con Spring Boot (backend) y React + TypeScript (frontend).
+Sistema de gestión académica para la Unidad Educativa Fiscal "Durán", desarrollado con Spring Boot (backend) y React + TypeScript (frontend), configurado como Progressive Web App (PWA) con soporte offline de solo lectura.
 
 ## Tecnologías
 
 - **Backend:** Java 21, Spring Boot 3.3, Spring Security, JWT, PostgreSQL, Redis, Flyway
-- **Frontend:** React, TypeScript, Vite
+- **Frontend:** React, TypeScript, Vite, vite-plugin-pwa
 
 ---
 
 ## Requisitos previos
-
-Antes de empezar, instala lo siguiente en tu computadora:
 
 1. **Java 21** → [Adoptium Temurin](https://adoptium.net/temurin/releases/?version=21)
 2. **Node.js** (versión 18 o superior) → [nodejs.org](https://nodejs.org)
@@ -35,8 +33,6 @@ cd SGA
 docker compose up -d
 ```
 
-Esto crea automáticamente los contenedores `sga_postgres` y `sga_redis`.
-
 ### 3. Levantar el backend
 
 ```bash
@@ -46,28 +42,11 @@ cd unemi
 
 > En Mac/Linux usa `./mvnw spring-boot:run`
 
-Espera hasta ver: `Started UnemiApplication in X seconds`. Las tablas se crean automáticamente con Flyway.
+Las migraciones de Flyway se aplican automáticamente al iniciar.
 
-### 4. Crear el usuario administrador
+### 4. Levantar el frontend
 
-Una vez el backend esté corriendo, abre pgAdmin o cualquier cliente de PostgreSQL y ejecuta en la base de datos `sga_db`:
-
-```sql
-INSERT INTO usuarios (id, nombre, email, password_hash, rol, activo, intentos_fallidos)
-VALUES (
-    gen_random_uuid(),
-    'Administrador',
-    'admin@sga.edu.ec',
-    '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBpwTpyAgMkEGe',
-    'RECTOR',
-    true,
-    0
-);
-```
-
-### 5. Levantar el frontend
-
-En una terminal separada (no cierres la del backend):
+En una terminal separada:
 
 ```bash
 cd frontend
@@ -75,9 +54,28 @@ npm install
 npm run dev
 ```
 
-### 6. Abrir la aplicación
+### 5. Abrir la aplicación
 
-Ve a [http://localhost:5173](http://localhost:5173) en tu navegador.
+Ve a [http://localhost:5173](http://localhost:5173).
+
+### 6. Crear el primer usuario administrador
+
+La base de datos empieza vacía — no hay ningún usuario para iniciar sesión. Crea el primero manualmente con pgAdmin (o cualquier cliente PostgreSQL), conectado a `sga_db`:
+
+```sql
+INSERT INTO usuarios (id, nombre, email, password_hash, rol, activo, intentos_fallidos)
+VALUES (
+    gen_random_uuid(),
+    'Administrador',
+    'admin@sga.edu.ec',
+    '$2a$10$bMvpQr51nfLksO2M1a5zsOfroun8HfAxYfJt0ZkFl3ywuME0VEW1S',
+    'RECTOR',
+    true,
+    0
+);
+```
+
+Esto crea el usuario `admin@sga.edu.ec` con contraseña `password`. Una vez dentro, puedes crear el resto de usuarios (docentes, estudiantes, representantes, etc.) desde la pantalla de **Usuarios** del sistema.
 
 ---
 
@@ -87,72 +85,109 @@ Ve a [http://localhost:5173](http://localhost:5173) en tu navegador.
 |----------|--------------------|
 | Usuario  | admin@sga.edu.ec   |
 | Contraseña | password         |
+| Rol | RECTOR |
+
+---
+
+## Roles del sistema
+
+El sistema diferencia 6 tipos de usuario, cada uno con su propio menú y datos filtrados:
+
+| Rol | Acceso |
+|-----|--------|
+| **RECTOR** | Acceso total: usuarios, estudiantes, docentes, materias, calificaciones, asistencia, horarios, comunicados, reportes |
+| **INSPECTOR** | Estudiantes, asistencia (gestión), comunicados |
+| **DOCENTE** | Sus propias calificaciones registradas, su horario, asistencia de sus materias, comunicados |
+| **ESTUDIANTE** | Solo sus propias calificaciones, asistencia, horario (por nivel), comunicados dirigidos a estudiantes, su boletín/reporte |
+| **REPRESENTANTE** | Calificaciones, asistencia y reportes del/los estudiante(s) que representa (vinculado vía `representante_id`) |
+| **ORIENTADOR (DECE)** | Estudiantes, asistencia, comunicados, reportes |
 
 ---
 
 ## Estructura del proyecto
-
 SGA/
 
-├── frontend/          # Aplicación React + TypeScript (Vite)
+├── frontend/
 
 │   ├── src/
 
-│   │   ├── api/       # Cliente HTTP (axios)
+│   │   ├── api/           # Cliente HTTP (axios) con bloqueo offline
 
-│   │   ├── assets/    # Imágenes y recursos estáticos
+│   │   ├── assets/
 
-│   │   ├── pages/     # Páginas (Login, Dashboard, etc.)
+│   │   ├── components/    # ProtectedRoute, etc.
 
-│   │   └── types/     # Tipos TypeScript
+│   │   ├── pages/         # Login, Dashboard, Inicio, Estudiantes, Docentes,
 
-│   └── package.json
+│   │   │                  # Materias, Calificaciones, Asistencias, Horarios,
 
-├── unemi/             # Backend Spring Boot
+│   │   │                  # Comunicados, Reportes, Usuarios
+
+│   │   └── types/
+
+│   ├── public/             # Íconos PWA
+
+│   └── vite.config.ts      # Configuración de PWA y caché offline
+
+├── unemi/                  # Backend Spring Boot
 
 │   ├── src/main/java/com/sga/unemi/
 
-│   │   ├── controller/    # Endpoints REST
+│   │   ├── controller/
 
-│   │   ├── model/         # Entidades JPA
+│   │   ├── dto/
 
-│   │   ├── repository/    # Repositorios
+│   │   ├── model/
 
-│   │   ├── service/       # Lógica de negocio
+│   │   ├── repository/
 
-│   │   └── security/      # JWT y Spring Security
+│   │   ├── service/
+
+│   │   └── security/
 
 │   └── src/main/resources/
 
-│       ├── db/migration/  # Migraciones Flyway
+│       ├── db/migration/   # V1 a V4 (incluye representante_id y nivel en materias)
 
 │       └── application.properties
 
-├── docker-compose.yml # PostgreSQL + Redis
+├── docker-compose.yml
 
 └── README.md
 
 ---
 
-## Estado actual del proyecto
+## Funcionalidades implementadas
 
-### ✅ Completado
-- Autenticación con JWT y Redis (login, logout, bloqueo por intentos fallidos)
-- Módulo de usuarios (CRUD)
-- Módulo de estudiantes
-- Módulo de docentes
-- Módulo de calificaciones
-- Módulo de asistencia
-- Módulo de horarios
-- Módulo de comunicados
-- Módulo de reportes
-- Pantalla de Login (frontend)
+### Backend
+- Autenticación JWT con bloqueo por intentos fallidos (Redis)
+- CRUD completo: Usuarios, Estudiantes, Docentes, Materias, Calificaciones, Asistencia, Horarios, Comunicados
+- Reportes: boletín de calificaciones y resumen de asistencia por estudiante
+- Validación de rango de notas (0-10)
+- Validación de conflicto de horarios (mismo docente, mismo día/hora)
+- Relación Representante ↔ Estudiante
 
-### 🚧 En desarrollo
-- Dashboard con sidebar y menús por rol
-- Pantallas CRUD para cada módulo
-- Vista responsive para móviles
-- Configuración PWA
+### Frontend
+- Login responsive con diseño institucional
+- Dashboard con sidebar (menú hamburguesa en celular) y menú diferenciado por rol
+- Datos filtrados según el rol logueado (no solo el menú, también el contenido)
+- Pantalla de Inicio con estadísticas (RECTOR) o comunicados recientes (otros roles)
+- Botón de reactivar para estudiantes/docentes desactivados
+- PWA instalable con modo offline (cachea la última información cargada; bloquea creación/edición sin conexión)
+
+---
+
+## Probar el modo offline (PWA)
+
+El servidor de desarrollo (`npm run dev`) no soporta bien el caché offline. Para probarlo de verdad:
+
+```bash
+cd frontend
+npm run build
+npm run preview
+```
+
+Abre la URL que te dé (normalmente `http://localhost:4173`), inicia sesión, navega por la app, y luego simula estar sin conexión (DevTools → Network → "Offline") para confirmar que la última información cargada sigue visible.
 
 ---
 
@@ -163,29 +198,27 @@ SGA/
 netstat -ano | findstr :8080
 taskkill /PID <numero_PID> /F
 ```
-Luego vuelve a correr `.\mvnw spring-boot:run`.
 
 ### Contenedores de Docker caídos
 ```bash
 docker start sga_postgres sga_redis
 ```
 
-### Token expirado / error 401
-El token dura 15 minutos. Si pasa este tiempo, vuelve a iniciar sesión en la aplicación.
-
-### Flyway: error de migración
-```sql
-DELETE FROM flyway_schema_history WHERE version = '2';
+### Cuenta bloqueada tras intentos fallidos
+El bloqueo se guarda en Redis (no en la base de datos). Para desbloquear manualmente:
+```bash
+docker exec -it sga_redis redis-cli FLUSHALL
 ```
-Luego reinicia el backend.
+
+### Token expirado / error 401 o 403 inesperado
+El token dura 15 minutos. Si pasa este tiempo, vuelve a iniciar sesión.
 
 ---
 
 ## Detener el proyecto
 
-Para detener los contenedores de Docker:
 ```bash
 docker compose down
 ```
 
-Para detener el backend y frontend, presiona `Ctrl + C` en cada terminal.
+Para detener el backend y frontend, `Ctrl + C` en cada terminal.a 
