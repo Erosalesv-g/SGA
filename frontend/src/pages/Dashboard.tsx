@@ -1,3 +1,5 @@
+import Materias from './Materias';
+import Inicio from './Inicio';
 import Usuarios from './Usuarios';
 import Reportes from './Reportes';
 import Comunicados from './Comunicados';
@@ -26,6 +28,7 @@ const MENU_BY_ROLE: Record<string, MenuItem[]> = {
     { label: 'Horarios', key: 'horarios' },
     { label: 'Comunicados', key: 'comunicados' },
     { label: 'Reportes', key: 'reportes' },
+    { label: 'Materias', key: 'materias' },
   ],
   INSPECTOR: [
     { label: 'Estudiantes', key: 'estudiantes' },
@@ -122,14 +125,13 @@ function Dashboard() {
         </button>
 
         {activeKey === 'inicio' ? (
-          <div className="dashboard-welcome">
-            <h1>Bienvenido/a, {nombre}</h1>
-            <p>Rol: {rol}</p>
-          </div>
+          <Inicio />
         ) : activeKey === 'estudiantes' ? (
           <Estudiantes />
         ) : activeKey === 'docentes' ? (
           <Docentes />
+        ) : activeKey === 'materias' ? (
+          <Materias />
         ) : activeKey === 'calificaciones' ? (
           <Calificaciones />
         ) : activeKey === 'asistencia' ? (

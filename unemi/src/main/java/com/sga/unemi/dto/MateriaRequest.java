@@ -8,6 +8,10 @@ public class MateriaRequest {
     private String codigo;
     private int creditos;
     private UUID docenteId;
+    private String nivel;
+
+    public String getNivel() { return nivel; }
+    public void setNivel(String nivel) { this.nivel = nivel; }
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }

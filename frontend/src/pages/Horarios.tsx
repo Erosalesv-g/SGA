@@ -3,6 +3,7 @@ import apiClient from '../api/client';
 import type { HorarioRequest, HorarioResponse } from '../types/horario';
 import type { DocenteResponse } from '../types/docente';
 import type { MateriaResponse } from '../types/materia';
+import type { EstudianteResponse } from '../types/estudiante';
 import './Horarios.css';
 
 const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES'];
@@ -50,6 +51,13 @@ function Horarios() {
         } else {
           setHorarios([]);
         }
+      } else if (rol === 'ESTUDIANTE') {
+        const estRes = await apiClient.get<EstudianteResponse[]>('/estudiantes');
+        const yo = estRes.data.find((e) => e.email === emailActual);
+        const misMateriaIds = matRes.data.filter((m) => m.nivel === yo?.nivel).map((m) => m.id);
+        const todasRes = await apiClient.get<HorarioResponse[]>('/horarios');
+        const deMiNivel = todasRes.data.filter((h) => misMateriaIds.includes(h.materiaId));
+        setHorarios(deMiNivel);
       } else {
         const horRes = await apiClient.get<HorarioResponse[]>('/horarios');
         setHorarios(horRes.data);

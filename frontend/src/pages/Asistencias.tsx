@@ -3,6 +3,7 @@ import apiClient from '../api/client';
 import type { AsistenciaRequest, AsistenciaResponse } from '../types/asistencia';
 import type { EstudianteResponse } from '../types/estudiante';
 import type { MateriaResponse } from '../types/materia';
+import type { DocenteResponse } from '../types/docente';
 import type { UsuarioBasico } from '../types/comunicado';
 import './Asistencias.css';
 
@@ -52,6 +53,13 @@ function Asistencias() {
         } else {
           setAsistencias([]);
         }
+      } else if (rol === 'DOCENTE') {
+        const docRes = await apiClient.get<DocenteResponse[]>('/docentes');
+        const yo = docRes.data.find((d) => d.email === emailActual);
+        const misMateriaIds = matRes.data.filter((m) => m.docenteId === yo?.id).map((m) => m.id);
+        const todasRes = await apiClient.get<AsistenciaResponse[]>('/asistencias');
+        const deMisMaterias = todasRes.data.filter((a) => misMateriaIds.includes(a.materiaId));
+        setAsistencias(deMisMaterias);
       } else if (rol === 'REPRESENTANTE') {
         const usuRes = await apiClient.get<UsuarioBasico[]>('/usuarios');
         const miUsuario = usuRes.data.find((u) => u.email === emailActual);

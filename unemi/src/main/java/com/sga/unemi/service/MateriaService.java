@@ -40,6 +40,7 @@ public class MateriaService {
         materia.setNombre(request.getNombre());
         materia.setCodigo(request.getCodigo());
         materia.setCreditos(request.getCreditos());
+        materia.setNivel(request.getNivel());
         asignarDocente(materia, request.getDocenteId());
 
         Materia guardada = materiaRepository.save(materia);
@@ -53,6 +54,7 @@ public class MateriaService {
         materia.setNombre(request.getNombre());
         materia.setCodigo(request.getCodigo());
         materia.setCreditos(request.getCreditos());
+        materia.setNivel(request.getNivel());
         asignarDocente(materia, request.getDocenteId());
 
         Materia actualizada = materiaRepository.save(materia);
@@ -79,6 +81,7 @@ public class MateriaService {
                 materia.getNombre(),
                 materia.getCodigo(),
                 materia.getCreditos(),
+                materia.getNivel(),
                 materia.getDocente() != null ? materia.getDocente().getId() : null,
                 materia.getDocente() != null ? materia.getDocente().getNombre() : null
         );

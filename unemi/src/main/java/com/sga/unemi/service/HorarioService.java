@@ -51,6 +51,15 @@ public class HorarioService {
             throw new RuntimeException("La hora de inicio debe ser antes que la hora de fin");
         }
 
+        boolean hayConflicto = horarioRepository.findByDocenteId(request.getDocenteId()).stream()
+                .filter(h -> h.getDiaSemana().equals(request.getDiaSemana()))
+                .anyMatch(h -> request.getHoraInicio().isBefore(h.getHoraFin())
+                        && request.getHoraFin().isAfter(h.getHoraInicio()));
+
+        if (hayConflicto) {
+            throw new RuntimeException("El docente ya tiene una clase asignada en ese día y horario");
+        }
+
         Horario horario = new Horario();
         horario.setDocente(docente);
         horario.setMateria(materia);

@@ -9,6 +9,14 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const metodo = (config.method || 'get').toLowerCase();
+  const esEscritura = ['post', 'put', 'patch', 'delete'].includes(metodo);
+
+  if (esEscritura && !navigator.onLine) {
+    return Promise.reject(new Error('Sin conexión a internet. No se pueden guardar cambios en este momento.'));
+  }
+
   return config;
 });
 

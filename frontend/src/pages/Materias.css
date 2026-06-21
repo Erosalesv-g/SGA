@@ -1,0 +1,54 @@
+.materias-container {
+  width: 100%;
+}
+
+.materias-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.materias-header h1 {
+  margin: 0;
+}
+
+.materias-table-wrapper {
+  background-color: #ffffff;
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.materias-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.materias-table th {
+  text-align: left;
+  padding: 14px 16px;
+  background-color: #f3ece4;
+  color: #6b1e2b;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.materias-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0ebe6;
+  font-size: 14px;
+  color: #2c2c2a;
+}
+
+.materias-table tr:last-child td {
+  border-bottom: none;
+}
+
+.materias-vacio,
+.materias-cargando {
+  text-align: center;
+  padding: 40px;
+  color: #8a8584;
+}

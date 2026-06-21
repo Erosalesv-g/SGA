@@ -8,15 +8,17 @@ public class MateriaResponse {
     private String nombre;
     private String codigo;
     private int creditos;
+    private String nivel;
     private UUID docenteId;
     private String docenteNombre;
 
-    public MateriaResponse(UUID id, String nombre, String codigo, int creditos,
+    public MateriaResponse(UUID id, String nombre, String codigo, int creditos, String nivel,
                             UUID docenteId, String docenteNombre) {
         this.id = id;
         this.nombre = nombre;
         this.codigo = codigo;
         this.creditos = creditos;
+        this.nivel = nivel;
         this.docenteId = docenteId;
         this.docenteNombre = docenteNombre;
     }
@@ -25,6 +27,7 @@ public class MateriaResponse {
     public String getNombre() { return nombre; }
     public String getCodigo() { return codigo; }
     public int getCreditos() { return creditos; }
+    public String getNivel() { return nivel; }
     public UUID getDocenteId() { return docenteId; }
     public String getDocenteNombre() { return docenteNombre; }
 }

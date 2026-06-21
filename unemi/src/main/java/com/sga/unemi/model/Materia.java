@@ -24,6 +24,12 @@ public class Materia {
     @JoinColumn(name = "docente_id")
     private Docente docente;
 
+    @Column
+    private String nivel;
+
+    public String getNivel() { return nivel; }
+    public void setNivel(String nivel) { this.nivel = nivel; }
+
     // Getters y Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }

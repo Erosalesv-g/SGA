@@ -1,0 +1,1 @@
+ALTER TABLE materias ADD COLUMN nivel VARCHAR(20);
