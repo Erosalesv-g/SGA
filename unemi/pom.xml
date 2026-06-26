@@ -82,6 +82,13 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- MinIO - almacenamiento de archivos -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.12</version>
+        </dependency>
+
         <!-- Validación -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
