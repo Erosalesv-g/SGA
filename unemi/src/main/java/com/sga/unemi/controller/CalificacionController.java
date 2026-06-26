@@ -30,8 +30,8 @@ public class CalificacionController {
     }
 
     @PostMapping
-    public ResponseEntity<CalificacionResponse> crear(@RequestBody CalificacionRequest request) {
-        return ResponseEntity.ok(calificacionService.crear(request));
+    public ResponseEntity<CalificacionResponse> crear(@RequestBody CalificacionRequest request, @RequestParam UUID actorId) {
+        return ResponseEntity.ok(calificacionService.crear(request, actorId));
     }
 
     @GetMapping("/{id}")
@@ -40,13 +40,13 @@ public class CalificacionController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CalificacionResponse> actualizar(@PathVariable UUID id, @RequestBody CalificacionRequest request) {
-        return ResponseEntity.ok(calificacionService.actualizar(id, request));
+    public ResponseEntity<CalificacionResponse> actualizar(@PathVariable UUID id, @RequestBody CalificacionRequest request, @RequestParam UUID actorId) {
+        return ResponseEntity.ok(calificacionService.actualizar(id, request, actorId));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable UUID id) {
-        calificacionService.eliminar(id);
+    public ResponseEntity<Void> eliminar(@PathVariable UUID id, @RequestParam UUID actorId) {
+        calificacionService.eliminar(id, actorId);
         return ResponseEntity.noContent().build();
     }
 }

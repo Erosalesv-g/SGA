@@ -7,10 +7,12 @@ import com.sga.unemi.model.Docente;
 import com.sga.unemi.model.Estudiante;
 import com.sga.unemi.model.Materia;
 import com.sga.unemi.model.TipoCalif;
+import com.sga.unemi.model.Usuario;
 import com.sga.unemi.repository.CalificacionRepository;
 import com.sga.unemi.repository.DocenteRepository;
 import com.sga.unemi.repository.EstudianteRepository;
 import com.sga.unemi.repository.MateriaRepository;
+import com.sga.unemi.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,15 +26,21 @@ public class CalificacionService {
     private final EstudianteRepository estudianteRepository;
     private final MateriaRepository materiaRepository;
     private final DocenteRepository docenteRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final AuditoriaLogService auditoriaLogService;
 
     public CalificacionService(CalificacionRepository calificacionRepository,
                                 EstudianteRepository estudianteRepository,
                                 MateriaRepository materiaRepository,
-                                DocenteRepository docenteRepository) {
+                                DocenteRepository docenteRepository,
+                                UsuarioRepository usuarioRepository,
+                                AuditoriaLogService auditoriaLogService) {
         this.calificacionRepository = calificacionRepository;
         this.estudianteRepository = estudianteRepository;
         this.materiaRepository = materiaRepository;
         this.docenteRepository = docenteRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.auditoriaLogService = auditoriaLogService;
     }
 
     public List<CalificacionResponse> listarTodas() {
@@ -47,7 +55,7 @@ public class CalificacionService {
                 .collect(Collectors.toList());
     }
 
-    public CalificacionResponse crear(CalificacionRequest request) {
+    public CalificacionResponse crear(CalificacionRequest request, UUID actorId) {
         Estudiante estudiante = estudianteRepository.findById(request.getEstudianteId())
                 .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
         Materia materia = materiaRepository.findById(request.getMateriaId())
@@ -68,6 +76,14 @@ public class CalificacionService {
         }
 
         Calificacion guardada = calificacionRepository.save(calificacion);
+
+        Usuario actor = usuarioRepository.findById(actorId).orElse(null);
+        if (actor != null) {
+            auditoriaLogService.registrar(actor, "CREAR", "Calificacion", guardada.getId(),
+                    "Registró calificación de " + estudiante.getNombre() + " en " + materia.getNombre() +
+                            ": " + guardada.getValor() + " (" + guardada.getTipo() + ")");
+        }
+
         return toResponse(guardada);
     }
 
@@ -77,9 +93,11 @@ public class CalificacionService {
         return toResponse(calificacion);
     }
 
-    public CalificacionResponse actualizar(UUID id, CalificacionRequest request) {
+    public CalificacionResponse actualizar(UUID id, CalificacionRequest request, UUID actorId) {
         Calificacion calificacion = calificacionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Calificación no encontrada"));
+
+        Double valorAnterior = calificacion.getValor();
 
         calificacion.setValor(request.getValor());
         calificacion.setTipo(TipoCalif.valueOf(request.getTipo()));
@@ -90,10 +108,29 @@ public class CalificacionService {
         }
 
         Calificacion actualizada = calificacionRepository.save(calificacion);
+
+        Usuario actor = usuarioRepository.findById(actorId).orElse(null);
+        if (actor != null) {
+            auditoriaLogService.registrar(actor, "EDITAR", "Calificacion", actualizada.getId(),
+                    "Editó la calificación de " + actualizada.getEstudiante().getNombre() +
+                            " en " + actualizada.getMateria().getNombre() +
+                            " de " + valorAnterior + " a " + actualizada.getValor());
+        }
+
         return toResponse(actualizada);
     }
 
-    public void eliminar(UUID id) {
+    public void eliminar(UUID id, UUID actorId) {
+        Calificacion calificacion = calificacionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Calificación no encontrada"));
+
+        Usuario actor = usuarioRepository.findById(actorId).orElse(null);
+        if (actor != null) {
+            auditoriaLogService.registrar(actor, "ELIMINAR", "Calificacion", calificacion.getId(),
+                    "Eliminó la calificación de " + calificacion.getEstudiante().getNombre() +
+                            " en " + calificacion.getMateria().getNombre() + " (valor: " + calificacion.getValor() + ")");
+        }
+
         calificacionRepository.deleteById(id);
     }
 

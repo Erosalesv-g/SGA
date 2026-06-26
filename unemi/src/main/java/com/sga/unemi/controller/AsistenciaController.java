@@ -30,8 +30,8 @@ public class AsistenciaController {
     }
 
     @PostMapping
-    public ResponseEntity<AsistenciaResponse> crear(@RequestBody AsistenciaRequest request) {
-        return ResponseEntity.ok(asistenciaService.crear(request));
+    public ResponseEntity<AsistenciaResponse> crear(@RequestBody AsistenciaRequest request, @RequestParam UUID actorId) {
+        return ResponseEntity.ok(asistenciaService.crear(request, actorId));
     }
 
     @GetMapping("/{id}")
@@ -40,13 +40,13 @@ public class AsistenciaController {
     }
 
     @PatchMapping("/{id}/justificar")
-    public ResponseEntity<AsistenciaResponse> justificar(@PathVariable UUID id) {
-        return ResponseEntity.ok(asistenciaService.justificar(id));
+    public ResponseEntity<AsistenciaResponse> justificar(@PathVariable UUID id, @RequestParam UUID actorId) {
+        return ResponseEntity.ok(asistenciaService.justificar(id, actorId));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable UUID id) {
-        asistenciaService.eliminar(id);
+    public ResponseEntity<Void> eliminar(@PathVariable UUID id, @RequestParam UUID actorId) {
+        asistenciaService.eliminar(id, actorId);
         return ResponseEntity.noContent().build();
     }
 }

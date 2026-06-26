@@ -25,8 +25,8 @@ public class UsuarioController {
     }
 
     @PostMapping
-    public ResponseEntity<UsuarioResponse> crear(@RequestBody UsuarioRequest request) {
-        return ResponseEntity.ok(usuarioService.crearUsuario(request));
+    public ResponseEntity<UsuarioResponse> crear(@RequestBody UsuarioRequest request, @RequestParam UUID actorId) {
+        return ResponseEntity.ok(usuarioService.crearUsuario(request, actorId));
     }
 
     @GetMapping("/{id}")
@@ -35,13 +35,13 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable UUID id, @RequestBody UsuarioRequest request) {
-        return ResponseEntity.ok(usuarioService.actualizarUsuario(id, request));
+    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable UUID id, @RequestBody UsuarioRequest request, @RequestParam UUID actorId) {
+        return ResponseEntity.ok(usuarioService.actualizarUsuario(id, request, actorId));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
-        usuarioService.desactivarUsuario(id);
+    public ResponseEntity<Void> desactivar(@PathVariable UUID id, @RequestParam UUID actorId) {
+        usuarioService.desactivarUsuario(id, actorId);
         return ResponseEntity.noContent().build();
     }
 }
