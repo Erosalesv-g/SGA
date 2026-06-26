@@ -3,7 +3,7 @@ import apiClient from '../api/client';
 import type { ComunicadoRequest, ComunicadoResponse, UsuarioBasico } from '../types/comunicado';
 import './Comunicados.css';
 
-const ROLES = ['RECTOR', 'INSPECTOR', 'DOCENTE', 'ESTUDIANTE', 'REPRESENTANTE', 'ORIENTADOR'];
+const ROLES = ['TODOS', 'RECTOR', 'INSPECTOR', 'DOCENTE', 'ESTUDIANTE', 'REPRESENTANTE', 'ORIENTADOR'];
 
 function Comunicados() {
   const rol = localStorage.getItem('rol') || '';
@@ -40,7 +40,7 @@ function Comunicados() {
         setComunicados(comRes.data);
       } else {
         const filtrados = comRes.data.filter(
-          (c) => c.destinatarioRol === rol || c.remitenteId === miId
+          (c) => c.destinatarioRol === rol || c.destinatarioRol === 'TODOS' || c.remitenteId === miId
         );
         setComunicados(filtrados);
       }

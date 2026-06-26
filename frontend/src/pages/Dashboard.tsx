@@ -1,3 +1,4 @@
+import AuditoriaLog from './AuditoriaLog';
 import RecursosPedagogicos from './RecursosPedagogicos';
 import Materias from './Materias';
 import Inicio from './Inicio';
@@ -31,6 +32,7 @@ const MENU_BY_ROLE: Record<string, MenuItem[]> = {
     { label: 'Reportes', key: 'reportes' },
     { label: 'Materias', key: 'materias' },
     { label: 'Recursos', key: 'recursos' },
+    { label: 'Auditoría', key: 'auditoria' },
   ],
   INSPECTOR: [
     { label: 'Estudiantes', key: 'estudiantes' },
@@ -50,12 +52,14 @@ const MENU_BY_ROLE: Record<string, MenuItem[]> = {
     { label: 'Horarios', key: 'horarios' },
     { label: 'Comunicados', key: 'comunicados' },
     { label: 'Reportes', key: 'reportes' },
+    { label: 'Recursos', key: 'recursos' },
   ],
   REPRESENTANTE: [
     { label: 'Calificaciones', key: 'calificaciones' },
     { label: 'Asistencia', key: 'asistencia' },
     { label: 'Comunicados', key: 'comunicados' },
     { label: 'Reportes', key: 'reportes' },
+    { label: 'Recursos', key: 'recursos' },
   ],
   ORIENTADOR: [
     { label: 'Estudiantes', key: 'estudiantes' },
@@ -149,6 +153,8 @@ function Dashboard() {
           <Usuarios />
         ) : activeKey === 'recursos' ? (
           <RecursosPedagogicos />
+        ) : activeKey === 'auditoria' ? (
+          <AuditoriaLog />
         ) : (
           <div className="dashboard-welcome">
             <h1>{menuItems.find((m) => m.key === activeKey)?.label}</h1>

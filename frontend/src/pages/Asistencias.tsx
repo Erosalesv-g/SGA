@@ -22,6 +22,7 @@ function Asistencias() {
   const [asistencias, setAsistencias] = useState<AsistenciaResponse[]>([]);
   const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
   const [materias, setMaterias] = useState<MateriaResponse[]>([]);
+  const [actorId, setActorId] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -38,12 +39,16 @@ function Asistencias() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [estRes, matRes] = await Promise.all([
+      const [estRes, matRes, usuRes] = await Promise.all([
         apiClient.get<EstudianteResponse[]>('/estudiantes'),
         apiClient.get<MateriaResponse[]>('/materias'),
+        apiClient.get<UsuarioBasico[]>('/usuarios'),
       ]);
       setEstudiantes(estRes.data);
       setMaterias(matRes.data);
+
+      const miUsuario = usuRes.data.find((u) => u.email === emailActual);
+      if (miUsuario) setActorId(miUsuario.id);
 
       if (rol === 'ESTUDIANTE') {
         const yo = estRes.data.find((e) => e.email === emailActual);
@@ -61,8 +66,6 @@ function Asistencias() {
         const deMisMaterias = todasRes.data.filter((a) => misMateriaIds.includes(a.materiaId));
         setAsistencias(deMisMaterias);
       } else if (rol === 'REPRESENTANTE') {
-        const usuRes = await apiClient.get<UsuarioBasico[]>('/usuarios');
-        const miUsuario = usuRes.data.find((u) => u.email === emailActual);
         const misEstudianteIds = estRes.data
           .filter((e) => e.representanteId === miUsuario?.id)
           .map((e) => e.id);
@@ -107,7 +110,7 @@ function Asistencias() {
     setGuardando(true);
 
     try {
-      await apiClient.post('/asistencias', form);
+      await apiClient.post(`/asistencias?actorId=${actorId}`, form);
       await cargarDatos();
       setModalAbierto(false);
     } catch {
@@ -119,7 +122,7 @@ function Asistencias() {
 
   const handleJustificar = async (id: string) => {
     try {
-      await apiClient.patch(`/asistencias/${id}/justificar`);
+      await apiClient.patch(`/asistencias/${id}/justificar?actorId=${actorId}`);
       await cargarDatos();
     } catch {
       setError('No se pudo justificar la asistencia');
@@ -129,7 +132,7 @@ function Asistencias() {
   const handleEliminar = async (id: string) => {
     if (!confirm('¿Eliminar este registro de asistencia?')) return;
     try {
-      await apiClient.delete(`/asistencias/${id}`);
+      await apiClient.delete(`/asistencias/${id}?actorId=${actorId}`);
       await cargarDatos();
     } catch {
       setError('No se pudo eliminar el registro');

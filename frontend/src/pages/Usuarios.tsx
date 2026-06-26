@@ -6,7 +6,10 @@ import './Usuarios.css';
 const ROLES = ['RECTOR', 'INSPECTOR', 'DOCENTE', 'ESTUDIANTE', 'REPRESENTANTE', 'ORIENTADOR'];
 
 function Usuarios() {
+  const emailActual = localStorage.getItem('email') || '';
+
   const [usuarios, setUsuarios] = useState<UsuarioResponse[]>([]);
+  const [actorId, setActorId] = useState('');
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -25,6 +28,8 @@ function Usuarios() {
     try {
       const response = await apiClient.get<UsuarioResponse[]>('/usuarios');
       setUsuarios(response.data);
+      const yo = response.data.find((u) => u.email === emailActual);
+      if (yo) setActorId(yo.id);
     } catch {
       setError('No se pudieron cargar los usuarios');
     } finally {
@@ -68,9 +73,9 @@ function Usuarios() {
 
     try {
       if (editandoId) {
-        await apiClient.put(`/usuarios/${editandoId}`, form);
+        await apiClient.put(`/usuarios/${editandoId}?actorId=${actorId}`, form);
       } else {
-        await apiClient.post('/usuarios', form);
+        await apiClient.post(`/usuarios?actorId=${actorId}`, form);
       }
       await cargarUsuarios();
       setModalAbierto(false);
@@ -84,7 +89,7 @@ function Usuarios() {
   const handleDesactivar = async (id: string) => {
     if (!confirm('¿Desactivar este usuario?')) return;
     try {
-      await apiClient.delete(`/usuarios/${id}`);
+      await apiClient.delete(`/usuarios/${id}?actorId=${actorId}`);
       await cargarUsuarios();
     } catch {
       setError('No se pudo desactivar el usuario');

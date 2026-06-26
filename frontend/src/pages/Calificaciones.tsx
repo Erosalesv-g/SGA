@@ -18,6 +18,7 @@ function Calificaciones() {
   const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
   const [docentes, setDocentes] = useState<DocenteResponse[]>([]);
   const [materias, setMaterias] = useState<MateriaResponse[]>([]);
+  const [actorId, setActorId] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -37,14 +38,18 @@ function Calificaciones() {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const [estRes, docRes, matRes] = await Promise.all([
+      const [estRes, docRes, matRes, usuRes] = await Promise.all([
         apiClient.get<EstudianteResponse[]>('/estudiantes'),
         apiClient.get<DocenteResponse[]>('/docentes'),
         apiClient.get<MateriaResponse[]>('/materias'),
+        apiClient.get<UsuarioBasico[]>('/usuarios'),
       ]);
       setEstudiantes(estRes.data);
       setDocentes(docRes.data);
       setMaterias(matRes.data);
+
+      const miUsuario = usuRes.data.find((u) => u.email === emailActual);
+      if (miUsuario) setActorId(miUsuario.id);
 
       if (rol === 'ESTUDIANTE') {
         const yo = estRes.data.find((e) => e.email === emailActual);
@@ -60,8 +65,6 @@ function Calificaciones() {
         const propias = yo ? todasRes.data.filter((c) => c.docenteId === yo.id) : [];
         setCalificaciones(propias);
       } else if (rol === 'REPRESENTANTE') {
-        const usuRes = await apiClient.get<UsuarioBasico[]>('/usuarios');
-        const miUsuario = usuRes.data.find((u) => u.email === emailActual);
         const misEstudianteIds = estRes.data
           .filter((e) => e.representanteId === miUsuario?.id)
           .map((e) => e.id);
@@ -125,9 +128,9 @@ function Calificaciones() {
 
     try {
       if (editandoId) {
-        await apiClient.put(`/calificaciones/${editandoId}`, form);
+        await apiClient.put(`/calificaciones/${editandoId}?actorId=${actorId}`, form);
       } else {
-        await apiClient.post('/calificaciones', form);
+        await apiClient.post(`/calificaciones?actorId=${actorId}`, form);
       }
       await cargarDatos();
       setModalAbierto(false);
@@ -141,7 +144,7 @@ function Calificaciones() {
   const handleEliminar = async (id: string) => {
     if (!confirm('¿Eliminar esta calificación?')) return;
     try {
-      await apiClient.delete(`/calificaciones/${id}`);
+      await apiClient.delete(`/calificaciones/${id}?actorId=${actorId}`);
       await cargarDatos();
     } catch {
       setError('No se pudo eliminar la calificación');

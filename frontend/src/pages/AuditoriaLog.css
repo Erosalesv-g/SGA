@@ -1,0 +1,79 @@
+.auditoria-container {
+  padding: 24px;
+}
+
+.auditoria-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.auditoria-header h1 {
+  font-size: 28px;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.auditoria-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.auditoria-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.auditoria-table thead {
+  background: #f5f0ee;
+}
+
+.auditoria-table th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b1b1b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.auditoria-table td {
+  padding: 14px 16px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 14px;
+  color: #333;
+}
+
+.accion-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.accion-CREAR {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.accion-EDITAR {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.accion-ELIMINAR {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.auditoria-cargando,
+.auditoria-vacio {
+  padding: 40px;
+  text-align: center;
+  color: #888;
+}
