@@ -1,0 +1,73 @@
+.recursos-container {
+  width: 100%;
+}
+
+.recursos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.recursos-header h1 {
+  margin: 0;
+}
+
+.recursos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.recurso-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.recurso-info h3 {
+  margin: 0 0 4px;
+  color: #6b1e2b;
+  font-size: 16px;
+}
+
+.recurso-meta {
+  font-size: 12px;
+  color: #8a8584;
+  margin: 4px 0 8px;
+}
+
+.recurso-descripcion {
+  font-size: 14px;
+  color: #2c2c2a;
+  margin: 0;
+}
+
+.recurso-archivo-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background-color: #f3ece4;
+  color: #6b1e2b;
+}
+
+.recursos-vacio,
+.recursos-cargando {
+  text-align: center;
+  padding: 40px;
+  color: #8a8584;
+}
+
+.form-group input[type="file"] {
+  width: 100%;
+  padding: 9px 0;
+  font-size: 13px;
+}
