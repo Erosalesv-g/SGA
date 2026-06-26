@@ -19,5 +19,20 @@ services:
     ports:
       - "6379:6379"
 
+  minio:
+    image: minio/minio
+    container_name: sga_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - sga_minio_data:/data
+    command: server /data --console-address ":9001"
+
 volumes:
   sga_postgres_data:
+  sga_minio_data:
