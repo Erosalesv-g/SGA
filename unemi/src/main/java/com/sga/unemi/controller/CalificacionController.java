@@ -49,4 +49,9 @@ public class CalificacionController {
         calificacionService.eliminar(id, actorId);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/promedio/{estudianteId}/{materiaId}")
+    public ResponseEntity<Double> obtenerPromedio(@PathVariable UUID estudianteId, @PathVariable UUID materiaId) {
+        return ResponseEntity.ok(calificacionService.calcularPromedio(estudianteId, materiaId));
+    }
 }

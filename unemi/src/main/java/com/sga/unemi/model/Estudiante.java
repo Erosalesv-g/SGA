@@ -1,5 +1,6 @@
 package com.sga.unemi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 @Entity
@@ -17,6 +18,7 @@ public class Estudiante extends Usuario {
 
     @ManyToOne
     @JoinColumn(name = "representante_id")
+    @JsonIgnoreProperties("estudiante")
     private Usuario representante;
 
     public Usuario getRepresentante() { return representante; }

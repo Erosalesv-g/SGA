@@ -8,11 +8,13 @@ import com.sga.unemi.model.Estudiante;
 import com.sga.unemi.model.Materia;
 import com.sga.unemi.model.TipoCalif;
 import com.sga.unemi.model.Usuario;
+import com.sga.unemi.observer.CalificacionObserver;
 import com.sga.unemi.repository.CalificacionRepository;
 import com.sga.unemi.repository.DocenteRepository;
 import com.sga.unemi.repository.EstudianteRepository;
 import com.sga.unemi.repository.MateriaRepository;
 import com.sga.unemi.repository.UsuarioRepository;
+import com.sga.unemi.strategy.PromedioStrategyFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,19 +30,25 @@ public class CalificacionService {
     private final DocenteRepository docenteRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaLogService auditoriaLogService;
+    private final PromedioStrategyFactory promedioStrategyFactory;
+    private final List<CalificacionObserver> observers;
 
     public CalificacionService(CalificacionRepository calificacionRepository,
                                 EstudianteRepository estudianteRepository,
                                 MateriaRepository materiaRepository,
                                 DocenteRepository docenteRepository,
                                 UsuarioRepository usuarioRepository,
-                                AuditoriaLogService auditoriaLogService) {
+                                AuditoriaLogService auditoriaLogService,
+                                PromedioStrategyFactory promedioStrategyFactory,
+                                List<CalificacionObserver> observers) {
         this.calificacionRepository = calificacionRepository;
         this.estudianteRepository = estudianteRepository;
         this.materiaRepository = materiaRepository;
         this.docenteRepository = docenteRepository;
         this.usuarioRepository = usuarioRepository;
         this.auditoriaLogService = auditoriaLogService;
+        this.promedioStrategyFactory = promedioStrategyFactory;
+        this.observers = observers;
     }
 
     public List<CalificacionResponse> listarTodas() {
@@ -84,6 +92,10 @@ public class CalificacionService {
                             ": " + guardada.getValor() + " (" + guardada.getTipo() + ")");
         }
 
+        for (CalificacionObserver observer : observers) {
+            observer.onCalificacionRegistrada(guardada);
+        }
+
         return toResponse(guardada);
     }
 
@@ -117,6 +129,10 @@ public class CalificacionService {
                             " de " + valorAnterior + " a " + actualizada.getValor());
         }
 
+        for (CalificacionObserver observer : observers) {
+            observer.onCalificacionRegistrada(actualizada);
+        }
+
         return toResponse(actualizada);
     }
 
@@ -132,6 +148,18 @@ public class CalificacionService {
         }
 
         calificacionRepository.deleteById(id);
+    }
+
+    public Double calcularPromedio(UUID estudianteId, UUID materiaId) {
+        Estudiante estudiante = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+
+        List<Calificacion> calificaciones = calificacionRepository
+                .findByEstudianteIdAndMateriaId(estudianteId, materiaId);
+
+        return promedioStrategyFactory
+                .obtenerStrategy(estudiante.getNivel())
+                .calcularPromedio(calificaciones);
     }
 
     private CalificacionResponse toResponse(Calificacion c) {
