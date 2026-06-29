@@ -52,7 +52,10 @@ public class CalificacionService {
     }
 
     public List<CalificacionResponse> listarTodas() {
-        return calificacionRepository.findAll().stream()
+        // Usa findAllConDetalles() (JOIN FETCH) en vez de findAll() para evitar
+        // el problema N+1: con findAll(), Hibernate haria una consulta extra
+        // por cada relacion (estudiante/materia/docente) de cada calificacion.
+        return calificacionRepository.findAllConDetalles().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
