@@ -21,6 +21,16 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Lógica de negocio del módulo de calificaciones (RF-03).
+ * <p>
+ * Es el "sujeto" del patrón Observer: tras cada creación o actualización de
+ * una calificación, notifica a todos los {@link CalificacionObserver}
+ * registrados (por ejemplo, para avisar al representante legal). También es
+ * el cliente del patrón Strategy: delega el cálculo de promedios en
+ * {@link PromedioStrategyFactory}, que decide la fórmula según el nivel
+ * educativo del estudiante.
+ */
 @Service
 public class CalificacionService {
 
@@ -51,6 +61,12 @@ public class CalificacionService {
         this.observers = observers;
     }
 
+    /**
+     * Lista todas las calificaciones del sistema.
+     *
+     * @return la lista completa de calificaciones, con los datos de
+     *         estudiante, materia y docente ya resueltos
+     */
     public List<CalificacionResponse> listarTodas() {
         // Usa findAllConDetalles() (JOIN FETCH) en vez de findAll() para evitar
         // el problema N+1: con findAll(), Hibernate haria una consulta extra
@@ -60,12 +76,29 @@ public class CalificacionService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lista las calificaciones de un estudiante específico.
+     *
+     * @param estudianteId id del estudiante
+     * @return las calificaciones de ese estudiante
+     */
     public List<CalificacionResponse> listarPorEstudiante(UUID estudianteId) {
         return calificacionRepository.findByEstudianteId(estudianteId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Registra una nueva calificación, validando su rango (0-10) y
+     * notificando a los observadores registrados tras guardarla.
+     *
+     * @param request datos de la calificación a crear
+     * @param actorId id del usuario que realiza la operación, para el
+     *                registro de auditoría
+     * @return la calificación creada
+     * @throws RuntimeException si el estudiante, la materia o el docente no
+     *                          existen, o si la nota está fuera de rango
+     */
     public CalificacionResponse crear(CalificacionRequest request, UUID actorId) {
         Estudiante estudiante = estudianteRepository.findById(request.getEstudianteId())
                 .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
@@ -102,12 +135,32 @@ public class CalificacionService {
         return toResponse(guardada);
     }
 
+    /**
+     * Obtiene una calificación por su id.
+     *
+     * @param id id de la calificación
+     * @return la calificación solicitada
+     * @throws RuntimeException si no existe una calificación con ese id
+     */
     public CalificacionResponse obtener(UUID id) {
         Calificacion calificacion = calificacionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Calificación no encontrada"));
         return toResponse(calificacion);
     }
 
+    /**
+     * Actualiza una calificación existente, registra el cambio en el log de
+     * auditoría (incluyendo el valor anterior) y notifica a los
+     * observadores registrados.
+     *
+     * @param id      id de la calificación a actualizar
+     * @param request nuevos datos de la calificación
+     * @param actorId id del usuario que realiza la operación, para el
+     *                registro de auditoría
+     * @return la calificación actualizada
+     * @throws RuntimeException si la calificación no existe o la nueva nota
+     *                          está fuera de rango
+     */
     public CalificacionResponse actualizar(UUID id, CalificacionRequest request, UUID actorId) {
         Calificacion calificacion = calificacionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Calificación no encontrada"));
@@ -139,6 +192,15 @@ public class CalificacionService {
         return toResponse(actualizada);
     }
 
+    /**
+     * Elimina una calificación, registrando la operación en el log de
+     * auditoría antes de borrarla.
+     *
+     * @param id      id de la calificación a eliminar
+     * @param actorId id del usuario que realiza la operación, para el
+     *                registro de auditoría
+     * @throws RuntimeException si la calificación no existe
+     */
     public void eliminar(UUID id, UUID actorId) {
         Calificacion calificacion = calificacionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Calificación no encontrada"));
@@ -153,6 +215,16 @@ public class CalificacionService {
         calificacionRepository.deleteById(id);
     }
 
+    /**
+     * Calcula el promedio de un estudiante en una materia, delegando la
+     * fórmula de cálculo en la estrategia correspondiente al nivel
+     * educativo del estudiante (patrón Strategy).
+     *
+     * @param estudianteId id del estudiante
+     * @param materiaId    id de la materia
+     * @return el promedio calculado
+     * @throws RuntimeException si el estudiante no existe
+     */
     public Double calcularPromedio(UUID estudianteId, UUID materiaId) {
         Estudiante estudiante = estudianteRepository.findById(estudianteId)
                 .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
@@ -165,6 +237,13 @@ public class CalificacionService {
                 .calcularPromedio(calificaciones);
     }
 
+    /**
+     * Convierte una entidad {@link Calificacion} a su DTO de respuesta,
+     * resolviendo los nombres del estudiante, materia y docente asociados.
+     *
+     * @param c la entidad de calificación a convertir
+     * @return el DTO de respuesta correspondiente
+     */
     private CalificacionResponse toResponse(Calificacion c) {
         return new CalificacionResponse(
                 c.getId(), c.getValor(), c.getTipo().name(), c.getFechaRegistro(),
