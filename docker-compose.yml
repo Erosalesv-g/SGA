@@ -11,14 +11,14 @@ services:
       - "5432:5432"
     volumes:
       - sga_postgres_data:/var/lib/postgresql/data
-
+ 
   redis:
     image: redis:7
     container_name: sga_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
-
+ 
   minio:
     image: minio/minio
     container_name: sga_minio
@@ -32,7 +32,18 @@ services:
     volumes:
       - sga_minio_data:/data
     command: server /data --console-address ":9001"
-
+ 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: sga_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+ 
 volumes:
   sga_postgres_data:
   sga_minio_data:
