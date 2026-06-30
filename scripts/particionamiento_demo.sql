@@ -61,3 +61,39 @@ SELECT 'calificaciones_2026_2027' AS particion, COUNT(*) FROM calificaciones_202
 -- viendo "Seq Scan on calificaciones_2026_2027" en el plan de ejecucion.
 EXPLAIN SELECT * FROM calificaciones_particionada_demo
 WHERE fecha_registro BETWEEN '2026-09-01' AND '2027-08-31';
+-- ============================================================================
+-- Extension: particionamiento de asistencias (RNF-0012)
+-- ============================================================================
+-- El documento de diseño contempla particionar tanto calificaciones como
+-- asistencias por año lectivo. Misma tecnica, misma tabla de demostracion
+-- aislada (no toca la tabla real "asistencias").
+
+DROP TABLE IF EXISTS asistencias_particionada_demo CASCADE;
+
+CREATE TABLE asistencias_particionada_demo (
+    id UUID DEFAULT gen_random_uuid(),
+    estudiante_id UUID NOT NULL,
+    materia_id UUID NOT NULL,
+    estado VARCHAR(1) NOT NULL,
+    fecha DATE NOT NULL,
+    PRIMARY KEY (id, fecha)
+) PARTITION BY RANGE (fecha);
+
+-- Particion del año lectivo actual (2026-2027)
+CREATE TABLE asistencias_2026_2027
+    PARTITION OF asistencias_particionada_demo
+    FOR VALUES FROM ('2026-09-01') TO ('2027-08-31');
+
+-- Datos de prueba en la particion actual
+INSERT INTO asistencias_particionada_demo (estudiante_id, materia_id, estado, fecha)
+VALUES
+    (gen_random_uuid(), gen_random_uuid(), 'P', '2026-09-16'),
+    (gen_random_uuid(), gen_random_uuid(), 'A', '2026-09-17'),
+    (gen_random_uuid(), gen_random_uuid(), 'J', '2026-10-01');
+
+-- Verificacion
+SELECT 'asistencias_2026_2027' AS particion, COUNT(*) FROM asistencias_2026_2027;
+
+-- Demostracion de partition pruning para asistencias
+EXPLAIN SELECT * FROM asistencias_particionada_demo
+WHERE fecha BETWEEN '2026-09-01' AND '2027-08-31';

@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     // Maximo de peticiones permitidas por IP dentro de la ventana de tiempo
-    private static final int MAX_REQUESTS_POR_MINUTO = 60;
+    private static final int MAX_REQUESTS_POR_MINUTO = 100;
     private static final long VENTANA_MS = 60_000;
 
     /**

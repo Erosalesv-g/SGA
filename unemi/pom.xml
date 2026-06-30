@@ -31,6 +31,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Mail - notificaciones por correo (bloqueo de cuenta, RNF-0002/Seguridad) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- JPA + PostgreSQL -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -100,6 +106,13 @@
             <groupId>io.github.resilience4j</groupId>
             <artifactId>resilience4j-spring-boot3</artifactId>
             <version>${resilience4j.version}</version>
+        </dependency>
+
+        <!-- Logstash Logback Encoder - logs estructurados en JSON con traceId -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
         </dependency>
 
         <!-- MinIO - almacenamiento de archivos -->

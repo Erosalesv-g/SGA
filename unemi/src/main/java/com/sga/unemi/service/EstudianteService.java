@@ -2,6 +2,8 @@ package com.sga.unemi.service;
 
 import com.sga.unemi.dto.EstudianteRequest;
 import com.sga.unemi.dto.EstudianteResponse;
+import com.sga.unemi.exception.ResourceNotFoundException;
+import com.sga.unemi.exception.ValidationException;
 import com.sga.unemi.model.Estudiante;
 import com.sga.unemi.model.Rol;
 import com.sga.unemi.model.Usuario;
@@ -14,6 +16,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Lógica de negocio del módulo de estudiantes.
+ * <p>
+ * Usa la jerarquía de excepciones de negocio ({@link ResourceNotFoundException},
+ * {@link ValidationException}) para que {@code GlobalExceptionHandler}
+ * traduzca cada error a su código HTTP correcto (404, 400), en vez de un
+ * 500 genérico o, como ocurría antes de la introducción de este manejador,
+ * un 401 incorrecto para cualquier RuntimeException.
+ */
 @Service
 public class EstudianteService {
 
@@ -37,10 +48,10 @@ public class EstudianteService {
 
     public EstudianteResponse crearEstudiante(EstudianteRequest request) {
         if (usuarioRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("El email ya está registrado");
+            throw new ValidationException("El email ya está registrado");
         }
         if (estudianteRepository.existsByCodigo(request.getCodigo())) {
-            throw new RuntimeException("El código de estudiante ya existe");
+            throw new ValidationException("El código de estudiante ya existe");
         }
 
         Estudiante estudiante = new Estudiante();
@@ -60,13 +71,13 @@ public class EstudianteService {
 
     public EstudianteResponse obtenerEstudiante(UUID id) {
         Estudiante estudiante = estudianteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
         return toResponse(estudiante);
     }
 
     public EstudianteResponse actualizarEstudiante(UUID id, EstudianteRequest request) {
         Estudiante estudiante = estudianteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
 
         estudiante.setNombre(request.getNombre());
         estudiante.setNivel(request.getNivel());
@@ -83,14 +94,14 @@ public class EstudianteService {
 
     public void desactivarEstudiante(UUID id) {
         Estudiante estudiante = estudianteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
         estudiante.setActivo(false);
         estudianteRepository.save(estudiante);
     }
 
     public void activarEstudiante(UUID id) {
         Estudiante estudiante = estudianteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Estudiante no encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
         estudiante.setActivo(true);
         estudianteRepository.save(estudiante);
     }
@@ -98,7 +109,7 @@ public class EstudianteService {
     private void asignarRepresentante(Estudiante estudiante, UUID representanteId) {
         if (representanteId != null) {
             Usuario representante = usuarioRepository.findById(representanteId)
-                    .orElseThrow(() -> new RuntimeException("Representante no encontrado"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Representante no encontrado"));
             estudiante.setRepresentante(representante);
         } else {
             estudiante.setRepresentante(null);

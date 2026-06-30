@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Configuración de logs estructurados en formato JSON (RNF-0013, sección
+    "Manejo de Errores" del documento de diseño), incluyendo el traceId
+    generado por TraceIdFilter para correlacionar todas las líneas de log
+    de una misma petición HTTP.
+
+    En consola se usa un formato legible para desarrollo; el appender JSON
+    (jsonFile) escribe a logs/sga.json, util para herramientas de analisis
+    de logs en un despliegue real (ELK, Loki, etc.).
+-->
+<configuration>
+
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [traceId=%X{traceId}] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="jsonFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/sga.json</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/sga.%d{yyyy-MM-dd}.json</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="console" />
+        <appender-ref ref="jsonFile" />
+    </root>
+
+    <logger name="com.sga.unemi" level="INFO" />
+    <logger name="org.springframework.security" level="WARN" />
+
+</configuration>
