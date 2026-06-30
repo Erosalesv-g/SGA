@@ -4,7 +4,7 @@ Sistema de gestión académica para la Unidad Educativa Fiscal "Durán", desarro
 
 ## Tecnologías
 
-- **Backend:** Java 21, Spring Boot 3.3, Spring Security, JWT, PostgreSQL, Redis, RabbitMQ, MinIO, Flyway, Resilience4j, OpenPDF
+- **Backend:** Java 21, Spring Boot 3.3, Spring Security, JWT (RS256), PostgreSQL, Redis, RabbitMQ, MinIO, Flyway, Resilience4j, OpenPDF, Logstash Logback Encoder
 - **Frontend:** React, TypeScript, Vite, vite-plugin-pwa
 
 ---
@@ -40,9 +40,9 @@ Esto levanta 4 contenedores:
 | Servicio | Puerto | Uso |
 |---|---|---|
 | PostgreSQL | 5432 | Base de datos principal |
-| Redis | 6379 | Sesiones y bloqueo por intentos fallidos |
-| RabbitMQ | 5672 (AMQP), 15672 (consola web) | Envío asíncrono de comunicados masivos |
-| MinIO | 9000 (API), 9001 (consola web) | Almacenamiento de recursos pedagógicos |
+| Redis | 6379 | Sesiones, bloqueo por intentos fallidos, caché de Materias/Horarios |
+| RabbitMQ | 5672 (AMQP), 15672 (consola web) | Envío asíncrono de comunicados y generación masiva de boletines |
+| MinIO | 9000 (API), 9001 (consola web) | Almacenamiento de recursos pedagógicos y backups cifrados |
 
 Confirma que los 4 estén corriendo con `docker ps`.
 
@@ -55,7 +55,9 @@ cd unemi
 
 > En Mac/Linux usa `./mvnw spring-boot:run`
 
-Las 12 migraciones de Flyway se aplican automáticamente al iniciar.
+Las 16 migraciones de Flyway se aplican automáticamente al iniciar.
+
+> **Nota sobre JWT:** el par de claves RS256 se genera en memoria al iniciar el backend (ver `JwtUtil`), no se configura una clave secreta en `application.properties`. Esto implica que los tokens emitidos antes de un reinicio del backend dejan de ser válidos después de reiniciar.
 
 ### 4. Levantar el frontend
 
@@ -69,7 +71,7 @@ npm run dev
 
 ### 5. Abrir la aplicación
 
-Ve a [http://localhost:5173](http://localhost:5173).
+Ve a http://localhost:5173
 
 ### 6. Crear el primer usuario administrador
 
@@ -81,7 +83,7 @@ docker exec -it sga_postgres psql -U postgres -d sga_db -c 'INSERT INTO usuarios
 
 > **Importante (PowerShell en Windows):** el comando usa comillas simples a propósito. El hash de la contraseña contiene signos `$` (`$2b$10$...`), y PowerShell los interpreta como variables dentro de comillas dobles, lo que corrompe el hash silenciosamente (nos pasó durante el desarrollo). Si necesitas escribir este tipo de comando desde cero, usa siempre comillas simples para el SQL completo, y duplica las comillas simples internas (`''`) para los valores de texto.
 
-Esto crea el usuario `admin@sga.edu.ec` con contraseña `password`. Una vez dentro, puedes crear el resto de usuarios (docentes, estudiantes, representantes, etc.) desde la pantalla de **Usuarios** del sistema.
+Esto crea el usuario `admin@sga.edu.ec` con contraseña `password`. Una vez dentro, puedes crear el resto de usuarios (docentes, estudiantes, representantes, etc.) desde la pantalla de Usuarios del sistema.
 
 ---
 
@@ -101,12 +103,12 @@ El sistema diferencia 6 tipos de usuario, cada uno con su propio menú y datos f
 
 | Rol | Acceso |
 |-----|--------|
-| **RECTOR** | Acceso total: usuarios, estudiantes, docentes, materias, calificaciones, asistencia, horarios, comunicados, reportes |
-| **INSPECTOR** | Estudiantes, asistencia (gestión), comunicados |
-| **DOCENTE** | Sus propias calificaciones registradas, su horario, asistencia de sus materias, comunicados, subir recursos pedagógicos |
-| **ESTUDIANTE** | Solo sus propias calificaciones, asistencia, horario (por nivel), comunicados dirigidos a estudiantes, su boletín/reporte |
-| **REPRESENTANTE** | Calificaciones, asistencia y reportes del/los estudiante(s) que representa (vinculado vía `representante_id`) |
-| **ORIENTADOR (DECE)** | Estudiantes, asistencia, comunicados, reportes |
+| RECTOR | Acceso total: usuarios, estudiantes, docentes, materias, calificaciones, asistencia, horarios, comunicados, reportes, boletines masivos |
+| INSPECTOR | Estudiantes, asistencia (gestión), comunicados |
+| DOCENTE | Sus propias calificaciones registradas, su horario, asistencia de sus materias, comunicados, subir recursos pedagógicos |
+| ESTUDIANTE | Solo sus propias calificaciones, asistencia, horario (por nivel), comunicados dirigidos a estudiantes, su boletín/reporte |
+| REPRESENTANTE | Calificaciones, asistencia y reportes del/los estudiante(s) que representa (vinculado vía representante_id) |
+| ORIENTADOR (DECE) | Estudiantes, asistencia, comunicados, reportes |
 
 ---
 
@@ -114,21 +116,41 @@ El sistema diferencia 6 tipos de usuario, cada uno con su propio menú y datos f
 
 | Patrón | Dónde | Propósito |
 |---|---|---|
-| **Strategy** | `strategy/PromedioStrategyFactory` | Calcula el promedio de calificaciones con una fórmula distinta según el nivel del estudiante (promedio simple para Básica, ponderado 40/30/20/10 por tipo de evaluación para Bachillerato) |
-| **Observer** | `observer/CalificacionObserver` | Notifica automáticamente al representante legal cuando se registra una nueva calificación |
-| **Circuit Breaker** (Resilience4j) | `service/ComunicadoEventPublisher` | Si RabbitMQ no responde, evita que la creación de un comunicado falle por completo: el comunicado se guarda igual, y el envío de notificaciones queda registrado en el log para reintento manual |
+| Strategy | strategy/PromedioStrategyFactory | Calcula el promedio de calificaciones con una fórmula distinta según el nivel del estudiante (promedio simple para Básica, ponderado 40/30/20/10 por tipo de evaluación para Bachillerato) |
+| Observer | observer/CalificacionObserver | Notifica automáticamente al representante legal cuando se registra una nueva calificación |
+| Singleton | Implícito vía el contenedor de Spring: todo @Bean/@Service/@Component es singleton por defecto. El pool de conexiones HikariCP (HikariDataSource) es una única instancia compartida en toda la aplicación |
+| Circuit Breaker (Resilience4j) | service/ComunicadoEventPublisher, service/BoletinMasivoEventPublisher | Si RabbitMQ no responde, evita que la operación falle por completo: el registro se guarda igual, y el procesamiento queda pendiente para reintento manual |
+| RBAC | Spring Security + filtrado por rol en cada servicio | Control de acceso basado en roles, verificado tanto en el endpoint como en los datos devueltos |
 
 ---
 
 ## Mensajería asíncrona (RabbitMQ)
 
-Los comunicados masivos no notifican a los destinatarios de forma síncrona (lo cual saturaría el servidor con cientos de representantes). En su lugar:
+### Comunicados
+1. POST /api/comunicados guarda el comunicado y publica un evento a RabbitMQ — responde de inmediato.
+2. ComunicadoConsumer procesa el evento en segundo plano, busca a todos los usuarios del rol destinatario, y les crea una notificación.
+3. Si RabbitMQ no está disponible, el Circuit Breaker evita que esto tumbe la petición.
 
-1. `POST /api/comunicados` guarda el comunicado y publica un evento a RabbitMQ — responde de inmediato.
-2. `ComunicadoConsumer` procesa el evento en segundo plano, busca a todos los usuarios del rol destinatario, y les crea una notificación.
-3. Si RabbitMQ no está disponible, el Circuit Breaker evita que esto tumbe la petición (ver tabla de patrones arriba).
+### Boletines masivos
+1. POST /api/reportes/boletines-masivos/{nivel}?solicitadoPorId={id} crea un trabajo de seguimiento (TrabajoBoletinMasivo, estado PENDIENTE) y publica un evento a RabbitMQ — responde de inmediato.
+2. BoletinMasivoConsumer genera el PDF de cada estudiante del nivel y lo sube a MinIO bajo boletines-masivos/{trabajoId}/{estudianteId}.pdf, actualizando el progreso en tiempo real.
+3. GET /api/reportes/boletines-masivos/{trabajoId} consulta el estado del trabajo (PENDIENTE, PROCESANDO, COMPLETADO, COMPLETADO_CON_ERRORES, FALLIDO).
 
-Consola de administración de RabbitMQ: [http://localhost:15672](http://localhost:15672) (usuario/clave: `guest`/`guest`).
+Consola de administración de RabbitMQ: http://localhost:15672 (usuario/clave: guest/guest).
+
+---
+
+## Seguridad
+
+- Autenticación: JWT firmado con RS256 (par de claves asimétrico, generado en memoria al iniciar el backend), expiración de 15 minutos (access token) y 7 días (refresh token).
+- Contraseñas: BCrypt con factor de costo 12.
+- Bloqueo de cuenta: tras 5 intentos fallidos consecutivos, la cuenta se bloquea 15 minutos (vía Redis) y se notifica al usuario por correo (EmailService, best-effort: si SMTP no está configurado, el bloqueo se aplica igual, solo falla el envío del correo).
+- Rate limiting: 100 peticiones/minuto por IP en /api/**, devuelve 429 al exceder.
+- CORS: restringido al origen del frontend (http://localhost:5173).
+- Headers de seguridad: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection (por defecto de Spring Security) + Content-Security-Policy explícito.
+- Manejo de errores: GlobalExceptionHandler centralizado (exception/) con jerarquía de excepciones de negocio (AcademicException, ResourceNotFoundException, ValidationException, UnauthorizedException), cada una traducida al código HTTP correcto (404, 400, 403) en vez de un 500 genérico.
+- Auditoría: doble capa — a nivel de aplicación (auditoria_log, con detalle de usuario y operación) y a nivel de base de datos vía triggers de PostgreSQL (auditoria_triggers, en las tablas calificaciones y matriculas, capturando automáticamente tipo de operación y timestamp).
+- Logs: estructurados en formato JSON (logs/sga.json), con un traceId único por petición HTTP (ver TraceIdFilter) para correlacionar todas las líneas de log de una misma solicitud.
 
 ---
 
@@ -138,35 +160,36 @@ Consola de administración de RabbitMQ: [http://localhost:15672](http://localhos
 SGA/
 ├── frontend/
 │   ├── src/
-│   │   ├── api/           # Cliente HTTP (axios) con bloqueo offline
+│   │   ├── api/
 │   │   ├── assets/
-│   │   ├── components/    # ProtectedRoute, etc.
-│   │   ├── pages/         # Login, Dashboard, Inicio, Estudiantes, Docentes,
-│   │   │                  # Materias, Calificaciones, Asistencias, Horarios,
-│   │   │                  # Comunicados, Reportes, Usuarios
+│   │   ├── components/
+│   │   ├── pages/
 │   │   └── types/
-│   ├── public/             # Íconos PWA
-│   └── vite.config.ts      # Configuración de PWA y caché offline
-├── unemi/                  # Backend Spring Boot
+│   ├── public/
+│   └── vite.config.ts
+├── unemi/
 │   ├── src/main/java/com/sga/unemi/
-│   │   ├── config/         # RabbitMQConfig, WebConfig (rate limiting)
-│   │   ├── consumer/       # ComunicadoConsumer (RabbitMQ)
+│   │   ├── config/         # RabbitMQConfig, WebConfig, CacheConfig, TraceIdFilter
+│   │   ├── consumer/       # ComunicadoConsumer, BoletinMasivoConsumer
 │   │   ├── controller/
 │   │   ├── dto/
+│   │   ├── exception/      # GlobalExceptionHandler + jerarquia de excepciones
 │   │   ├── model/
-│   │   ├── observer/       # Patrón Observer
+│   │   ├── observer/
 │   │   ├── repository/
-│   │   ├── security/       # JWT, RateLimitInterceptor
-│   │   ├── service/        # Incluye ComunicadoEventPublisher (Circuit Breaker)
-│   │   └── strategy/       # Patrón Strategy (promedios)
+│   │   ├── security/       # JwtUtil (RS256), RateLimitInterceptor
+│   │   ├── service/        # EventPublishers (Circuit Breaker), EmailService
+│   │   └── strategy/
 │   └── src/main/resources/
-│       ├── db/migration/   # V1 a V12
-│       └── application.properties
+│       ├── db/migration/   # V1 a V16
+│       ├── application.properties
+│       └── logback-spring.xml
 ├── scripts/
-│   ├── backup-db.ps1            # Genera un backup de la base de datos
-│   ├── restore-db.ps1           # Restaura un backup
-│   └── datos_prueba_masivos.sql # Genera 500 estudiantes + calificaciones de prueba
-├── backups/                 # Backups generados (ver scripts/backup-db.ps1)
+│   ├── backup-db.ps1                # Backup cifrado (AES-256) + sube a MinIO
+│   ├── restore-db.ps1               # Descifra y restaura un backup
+│   ├── datos_prueba_masivos.sql
+│   └── particionamiento_demo.sql
+├── backups/
 ├── docker-compose.yml
 └── README.md
 ```
@@ -176,56 +199,61 @@ SGA/
 ## Funcionalidades implementadas
 
 ### Backend
-- Autenticación JWT con bloqueo por intentos fallidos (Redis)
-- Rate limiting por IP (60 peticiones/minuto en `/api/**`, devuelve `429` al exceder)
+- Autenticación JWT (RS256) con bloqueo por intentos fallidos (Redis) y notificación por correo
+- Rate limiting por IP (100 peticiones/minuto en /api/**, devuelve 429 al exceder)
 - CRUD completo: Usuarios, Estudiantes, Docentes, Materias, Calificaciones, Asistencia, Horarios, Comunicados
 - Comunicados masivos vía RabbitMQ con Circuit Breaker (Resilience4j)
+- Generación masiva de boletines en PDF vía RabbitMQ, con seguimiento de progreso
 - Reportes: boletín de calificaciones (JSON y PDF) y resumen de asistencia por estudiante
 - Recursos pedagógicos almacenados en MinIO (subida restringida a rol DOCENTE)
 - Validación de rango de notas (0-10)
 - Validación de conflicto de horarios (mismo docente, mismo día/hora)
+- Bloqueo optimista (@Version) en Matrículas
 - Relación Representante ↔ Estudiante
-- Consultas optimizadas con `JOIN FETCH` para evitar el problema N+1 en listados grandes
+- JOIN FETCH e índice compuesto en Calificaciones para evitar N+1
+- Caché en Redis para Materias y Horarios
+- Manejador global de excepciones con códigos HTTP correctos
+- Triggers de auditoría automática en PostgreSQL
+- Logs JSON estructurados con correlación por traceId
 
 ### Frontend
 - Login responsive con diseño institucional
 - Dashboard con sidebar (menú hamburguesa en celular) y menú diferenciado por rol
-- Datos filtrados según el rol logueado (no solo el menú, también el contenido)
+- Datos filtrados según el rol logueado
 - Pantalla de Inicio con estadísticas (RECTOR) o comunicados recientes (otros roles)
 - Botón de reactivar para estudiantes/docentes desactivados
-- PWA instalable con modo offline (cachea la última información cargada; bloquea creación/edición sin conexión)
+- PWA instalable con modo offline
 
 ---
 
 ## Scripts de utilidad
 
-### Backup y restauración de la base de datos
+### Backup y restauración de la base de datos (cifrados)
 
 ```powershell
-# Generar un backup (se guarda en backups/, con fecha y hora en el nombre)
 .\scripts\backup-db.ps1
-
-# Restaurar un backup especifico
-.\scripts\restore-db.ps1 -Archivo "backups\sga_backup_2026-06-29_12-41-45.sql"
+.\scripts\restore-db.ps1 -Archivo "backups\sga_backup_2026-06-29_12-41-45.sql.enc"
 ```
 
-Los backups de más de 7 días se eliminan automáticamente al correr `backup-db.ps1` de nuevo.
+Los backups locales de más de 7 días se eliminan automáticamente al correr backup-db.ps1 de nuevo. La clave de cifrado se toma de la variable de entorno SGA_BACKUP_KEY; si no existe, usa una clave por defecto solo para desarrollo local.
 
 ### Generar datos de prueba a escala
-
-Para probar el sistema con cientos de registros (útil para demostrar que soporta la escala documentada, 500-5000 estudiantes):
 
 ```powershell
 Get-Content scripts\datos_prueba_masivos.sql | docker exec -i sga_postgres psql -U postgres -d sga_db
 ```
 
-Esto crea 500 estudiantes con sus calificaciones. Requiere que ya exista al menos una materia y un docente en la base (ver el script para los UUIDs esperados, o ajústalos a los tuyos).
+### Demostración de particionamiento por año lectivo
+
+```powershell
+Get-Content scripts\particionamiento_demo.sql | docker exec -i sga_postgres psql -U postgres -d sga_db
+```
+
+Crea una tabla de demostración aislada, sin tocar las tablas reales de la aplicación.
 
 ---
 
 ## Probar el modo offline (PWA)
-
-El servidor de desarrollo (`npm run dev`) no soporta bien el caché offline. Para probarlo de verdad:
 
 ```bash
 cd frontend
@@ -233,7 +261,7 @@ npm run build
 npm run preview
 ```
 
-Abre la URL que te dé (normalmente `http://localhost:4173`), inicia sesión, navega por la app, y luego simula estar sin conexión (DevTools → Network → "Offline") para confirmar que la última información cargada sigue visible.
+Abre la URL que te dé (normalmente http://localhost:4173), inicia sesión, navega por la app, y simula estar sin conexión (DevTools → Network → "Offline").
 
 ---
 
@@ -251,28 +279,22 @@ docker start sga_postgres sga_redis sga_rabbitmq sga_minio
 ```
 
 ### Cuenta bloqueada tras intentos fallidos
-El bloqueo se guarda en Redis (no en la base de datos). Para desbloquear manualmente:
 ```bash
 docker exec -it sga_redis redis-cli FLUSHALL
 ```
 
-### Token expirado / error 401 o 403 inesperado
-El token dura 15 minutos. Si pasa este tiempo, vuelve a iniciar sesión.
+### Token expirado / error 401 inesperado
+El token dura 15 minutos. Si reiniciaste el backend, todos los tokens emitidos antes del reinicio quedan inválidos (las claves RS256 se regeneran en cada arranque).
 
 ### Conflicto entre PostgreSQL nativo (Windows) y el contenedor Docker
-Si tienes PostgreSQL instalado directamente en Windows (no solo en Docker), puede arrancar como servicio del sistema y "ganar" el puerto 5432 antes que el contenedor, haciendo que el backend se conecte al Postgres equivocado sin ningún error visible (vas a ver datos vacíos o inconsistentes). Para revisar:
 ```powershell
 netstat -ano | findstr :5432
-```
-Si ves dos procesos distintos escuchando en 5432, identifica cuál es el servicio nativo (`tasklist /FI "PID eq <numero>"`) y detenlo:
-```powershell
 Stop-Service -Name "postgresql-x64-17"
 Set-Service -Name "postgresql-x64-17" -StartupType Manual
 ```
-(Ajusta el nombre del servicio si tu versión de PostgreSQL es distinta.)
 
-### Error 401 que en realidad es otro problema
-Algunos errores del backend (excepciones de SQL, columnas faltantes, etc.) pueden devolver código 401 en vez del código real. Si un endpoint que debería funcionar da 401 de forma inconsistente, revisa el log del backend directamente — el mensaje de error real suele estar ahí, no en la respuesta HTTP.
+### Error 401 inesperado en un endpoint que debería funcionar
+El manejador global de excepciones traduce cada error a su código HTTP correcto (404, 400, 403, 500). Si ves un 401 fuera del flujo de autenticación, revisa el log (logs/sga.json) usando el traceId de la respuesta de error.
 
 ---
 
@@ -282,12 +304,11 @@ Algunos errores del backend (excepciones de SQL, columnas faltantes, etc.) puede
 docker compose down
 ```
 
-Para detener el backend y frontend, `Ctrl + C` en cada terminal.
-
 ---
 
 ## Trabajo futuro (fuera del alcance actual)
 
-- **HTTPS/TLS**: no configurado en desarrollo local. Antes de desplegar en un servidor con dominio público, configurar un certificado (por ejemplo con Let's Encrypt/Certbot detrás de un proxy Nginx).
-- **RabbitMQ para boletines y alertas masivas**: actualmente solo Comunicados usa la cola; el documento de diseño también contempla extenderlo a la generación de boletines y alertas de asistencia masivas.
-- **Backups automatizados por cron/Task Scheduler**: los scripts ya existen (`scripts/backup-db.ps1`), falta programarlos para que corran solos en un horario fijo.
+- HTTPS/TLS en producción: pendiente el despliegue a un servidor con dominio público (Hostinger + DuckDNS + Let's Encrypt/Certbot detrás de Nginx).
+- Particionamiento de las tablas reales: actualmente solo existe como demostración aislada.
+- Extender la jerarquía de excepciones de negocio al resto de servicios (actualmente cubre EstudianteService y CalificacionService).
+- Compartir las claves RS256 entre instancias si se despliegan múltiples réplicas del backend en paralelo.
