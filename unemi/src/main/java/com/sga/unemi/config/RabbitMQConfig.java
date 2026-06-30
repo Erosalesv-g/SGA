@@ -10,12 +10,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Configuración de la infraestructura de mensajería RabbitMQ usada para el
- * envío asíncrono de comunicados masivos (RF-06, RNF-0011).
+ * Configuración de la infraestructura de mensajería RabbitMQ.
  * <p>
- * Define la cola, el exchange y el binding entre ambos, además del
- * conversor de mensajes a formato JSON para que los objetos Java se
- * serialicen de forma legible en la cola.
+ * Define dos flujos independientes de mensajería asíncrona (RNF-0011):
+ * <ul>
+ *   <li><b>Comunicados</b> (RF-06): envío masivo de notificaciones a los
+ *       destinatarios de un comunicado.</li>
+ *   <li><b>Boletines masivos</b> (RF-08): generación en lote de boletines
+ *       de calificaciones en PDF para todos los estudiantes de un nivel,
+ *       almacenados en MinIO.</li>
+ * </ul>
+ * Cada flujo tiene su propia cola, exchange y routing key, pero comparten el
+ * mismo conversor de mensajes JSON.
  */
 @Configuration
 public class RabbitMQConfig {
@@ -28,6 +34,15 @@ public class RabbitMQConfig {
 
     /** Routing key usada para enrutar los mensajes del exchange a la cola. */
     public static final String COMUNICADOS_ROUTING_KEY = "comunicados.nuevo";
+
+    /** Nombre de la cola donde se encolan los trabajos de boletines masivos. */
+    public static final String BOLETINES_MASIVOS_QUEUE = "boletines.masivos.queue";
+
+    /** Nombre del exchange de tipo directo para boletines masivos. */
+    public static final String BOLETINES_MASIVOS_EXCHANGE = "boletines.masivos.exchange";
+
+    /** Routing key usada para enrutar los mensajes del exchange a la cola de boletines. */
+    public static final String BOLETINES_MASIVOS_ROUTING_KEY = "boletines.masivos.nuevo";
 
     /**
      * Declara la cola de comunicados como durable, es decir, que sus
@@ -56,6 +71,37 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(comunicadosQueue)
                 .to(comunicadosExchange)
                 .with(COMUNICADOS_ROUTING_KEY);
+    }
+
+    /**
+     * Declara la cola de boletines masivos como durable. Los trabajos
+     * pueden tardar varios segundos en procesarse (cientos de PDFs), por lo
+     * que es importante que no se pierdan si RabbitMQ se reinicia mientras
+     * hay trabajos pendientes en la cola.
+     */
+    @Bean
+    public Queue boletinesMasivosQueue() {
+        return new Queue(BOLETINES_MASIVOS_QUEUE, true);
+    }
+
+    /**
+     * Declara el exchange directo al que se publican los trabajos de
+     * generación masiva de boletines.
+     */
+    @Bean
+    public DirectExchange boletinesMasivosExchange() {
+        return new DirectExchange(BOLETINES_MASIVOS_EXCHANGE);
+    }
+
+    /**
+     * Enlaza la cola de boletines masivos con su exchange mediante la
+     * routing key definida.
+     */
+    @Bean
+    public Binding boletinesMasivosBinding(Queue boletinesMasivosQueue, DirectExchange boletinesMasivosExchange) {
+        return BindingBuilder.bind(boletinesMasivosQueue)
+                .to(boletinesMasivosExchange)
+                .with(BOLETINES_MASIVOS_ROUTING_KEY);
     }
 
     /**
