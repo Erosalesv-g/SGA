@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import apiClient from '../api/client';
 import type { AsistenciaRequest, AsistenciaResponse } from '../types/asistencia';
 import type { EstudianteResponse } from '../types/estudiante';
@@ -23,6 +23,12 @@ function Asistencias() {
   const [estudiantes, setEstudiantes] = useState<EstudianteResponse[]>([]);
   const [materias, setMaterias] = useState<MateriaResponse[]>([]);
   const [actorId, setActorId] = useState('');
+  const [miDocenteId, setMiDocenteId] = useState('');
+
+  // Filtros
+  const [filtroMateriaId, setFiltroMateriaId] = useState('');
+  const [filtroSeccion, setFiltroSeccion] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().slice(0, 10));
 
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -50,7 +56,21 @@ function Asistencias() {
       const miUsuario = usuRes.data.find((u) => u.email === emailActual);
       if (miUsuario) setActorId(miUsuario.id);
 
-      if (rol === 'ESTUDIANTE') {
+      if (rol === 'DOCENTE') {
+        const docRes = await apiClient.get<DocenteResponse[]>('/docentes');
+        const yo = docRes.data.find((d) => d.email === emailActual);
+        if (yo) setMiDocenteId(yo.id);
+        const misMateriaIds = matRes.data
+          .filter((m) => {
+            if (m.docenteId === yo?.id) return true;
+            if (m.docentesPorJornada && m.docentesPorJornada.some((dj) => dj.docenteId === yo?.id)) return true;
+            return false;
+          })
+          .map((m) => m.id);
+        const todasRes = await apiClient.get<AsistenciaResponse[]>('/asistencias');
+        const deMisMaterias = todasRes.data.filter((a) => misMateriaIds.includes(a.materiaId));
+        setAsistencias(deMisMaterias);
+      } else if (rol === 'ESTUDIANTE') {
         const yo = estRes.data.find((e) => e.email === emailActual);
         if (yo) {
           const asisRes = await apiClient.get<AsistenciaResponse[]>(`/asistencias/estudiante/${yo.id}`);
@@ -58,13 +78,6 @@ function Asistencias() {
         } else {
           setAsistencias([]);
         }
-      } else if (rol === 'DOCENTE') {
-        const docRes = await apiClient.get<DocenteResponse[]>('/docentes');
-        const yo = docRes.data.find((d) => d.email === emailActual);
-        const misMateriaIds = matRes.data.filter((m) => m.docenteId === yo?.id).map((m) => m.id);
-        const todasRes = await apiClient.get<AsistenciaResponse[]>('/asistencias');
-        const deMisMaterias = todasRes.data.filter((a) => misMateriaIds.includes(a.materiaId));
-        setAsistencias(deMisMaterias);
       } else if (rol === 'REPRESENTANTE') {
         const misEstudianteIds = estRes.data
           .filter((e) => e.representanteId === miUsuario?.id)
@@ -87,12 +100,70 @@ function Asistencias() {
     cargarDatos();
   }, []);
 
+  // Materias disponibles según rol
+  const materiasDisponibles = useMemo(() => {
+    if (rol === 'DOCENTE' && miDocenteId) {
+      return materias.filter((m) => {
+        if (m.docenteId === miDocenteId) return true;
+        if (m.docentesPorJornada && m.docentesPorJornada.some((dj) => dj.docenteId === miDocenteId)) return true;
+        return false;
+      });
+    }
+    return materias;
+  }, [materias, miDocenteId, rol]);
+
+  // Materia seleccionada
+  const materiaSeleccionada = useMemo(() => {
+    return materias.find((m) => m.id === filtroMateriaId);
+  }, [materias, filtroMateriaId]);
+
+  // Secciones disponibles
+  const seccionesDisponibles = useMemo(() => {
+    if (!materiaSeleccionada) return [];
+    const secciones = [...new Set(estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel).map((e) => e.seccion))];
+    return secciones.sort();
+  }, [estudiantes, materiaSeleccionada]);
+
+  // Estudiantes filtrados
+  const estudiantesFiltrados = useMemo(() => {
+    if (!materiaSeleccionada) return [];
+    let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
+    if (filtroSeccion) {
+      filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
+    }
+    return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [estudiantes, materiaSeleccionada, filtroSeccion]);
+
+  // Asistencias filtradas
+  const asistenciasFiltradas = useMemo(() => {
+    let filtradas = asistencias;
+    if (filtroMateriaId) {
+      filtradas = filtradas.filter((a) => a.materiaId === filtroMateriaId);
+    }
+    if (filtroSeccion && materiaSeleccionada) {
+      const idsEstudiantesSeccion = estudiantes
+        .filter((e) => e.nivel === materiaSeleccionada.nivel && e.seccion === filtroSeccion)
+        .map((e) => e.id);
+      filtradas = filtradas.filter((a) => idsEstudiantesSeccion.includes(a.estudianteId));
+    }
+    if (filtroFecha) {
+      filtradas = filtradas.filter((a) => a.fecha === filtroFecha);
+    }
+    return filtradas;
+  }, [asistencias, filtroMateriaId, filtroSeccion, filtroFecha, estudiantes, materiaSeleccionada]);
+
+  // Estudiantes sin asistencia registrada hoy (para registro rápido)
+  const estudiantesSinRegistro = useMemo(() => {
+    const idsConRegistro = asistenciasFiltradas.map((a) => a.estudianteId);
+    return estudiantesFiltrados.filter((e) => !idsConRegistro.includes(e.id));
+  }, [estudiantesFiltrados, asistenciasFiltradas]);
+
   const abrirNuevo = () => {
     setForm({
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: filtroFecha || new Date().toISOString().slice(0, 10),
       estado: 'P',
-      estudianteId: estudiantes[0]?.id || '',
-      materiaId: materias[0]?.id || '',
+      estudianteId: estudiantesSinRegistro[0]?.id || estudiantesFiltrados[0]?.id || '',
+      materiaId: filtroMateriaId || materiasDisponibles[0]?.id || '',
     });
     setError('');
     setModalAbierto(true);
@@ -139,60 +210,129 @@ function Asistencias() {
     }
   };
 
+  // Contadores rápidos
+  const contadores = useMemo(() => {
+    const c = { P: 0, A: 0, J: 0, T: 0 };
+    asistenciasFiltradas.forEach((a) => {
+      if (c[a.estado as keyof typeof c] !== undefined) c[a.estado as keyof typeof c]++;
+    });
+    return c;
+  }, [asistenciasFiltradas]);
+
   return (
     <div className="asistencias-container">
       <div className="asistencias-header">
         <h1>Asistencia</h1>
-        {puedeEditar && (
-          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantes.length === 0 || materias.length === 0}>
+        {puedeEditar && filtroMateriaId && (
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantesFiltrados.length === 0}>
             + Nuevo registro
           </button>
+        )}
+      </div>
+
+      {/* Filtros */}
+      <div className="filtros-container">
+        <div className="filtro-group">
+          <label>Materia</label>
+          <select
+            value={filtroMateriaId}
+            onChange={(e) => {
+              setFiltroMateriaId(e.target.value);
+              setFiltroSeccion('');
+            }}
+          >
+            <option value="">— Selecciona una materia —</option>
+            {materiasDisponibles.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.nombre} ({m.codigo}) - {m.nivel}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {filtroMateriaId && seccionesDisponibles.length > 0 && (
+          <div className="filtro-group">
+            <label>Sección</label>
+            <select value={filtroSeccion} onChange={(e) => setFiltroSeccion(e.target.value)}>
+              <option value="">Todas las secciones</option>
+              {seccionesDisponibles.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="filtro-group">
+          <label>Fecha</label>
+          <input
+            type="date"
+            value={filtroFecha}
+            onChange={(e) => setFiltroFecha(e.target.value)}
+          />
+        </div>
+
+        {filtroMateriaId && (
+          <div className="filtro-info">
+            {estudiantesFiltrados.length} estudiantes ·
+            <span className="estado-mini estado-P"> {contadores.P} P</span>
+            <span className="estado-mini estado-A"> {contadores.A} A</span>
+            <span className="estado-mini estado-J"> {contadores.J} J</span>
+            <span className="estado-mini estado-T"> {contadores.T} T</span>
+            {estudiantesSinRegistro.length > 0 && (
+              <span className="sin-registro"> · {estudiantesSinRegistro.length} sin registrar</span>
+            )}
+          </div>
         )}
       </div>
 
       <div className="asistencias-table-wrapper">
         {loading ? (
           <div className="asistencias-cargando">Cargando asistencias...</div>
-        ) : asistencias.length === 0 ? (
-          <div className="asistencias-vacio">No hay registros de asistencia todavía.</div>
+        ) : !filtroMateriaId ? (
+          <div className="asistencias-vacio">Selecciona una materia para ver la asistencia.</div>
+        ) : asistenciasFiltradas.length === 0 ? (
+          <div className="asistencias-vacio">No hay registros de asistencia para esta fecha y materia.</div>
         ) : (
           <table className="asistencias-table">
             <thead>
               <tr>
                 <th>Estudiante</th>
-                <th>Materia</th>
+                <th>Sección</th>
                 <th>Estado</th>
                 <th>Fecha</th>
                 {puedeEditar && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
-              {asistencias.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.estudianteNombre}</td>
-                  <td>{a.materiaNombre}</td>
-                  <td>
-                    <span className={`estado-badge estado-${a.estado}`}>
-                      {ESTADOS[a.estado] || a.estado}
-                    </span>
-                  </td>
-                  <td>{a.fecha}</td>
-                  {puedeEditar && (
+              {asistenciasFiltradas.map((a) => {
+                const est = estudiantes.find((e) => e.id === a.estudianteId);
+                return (
+                  <tr key={a.id}>
+                    <td>{a.estudianteNombre}</td>
+                    <td>{est?.seccion || '—'}</td>
                     <td>
-                      <div className="tabla-acciones">
-                        {a.estado === 'A' && (
-                          <button className="btn-accion btn-justificar" onClick={() => handleJustificar(a.id)}>
-                            Justificar
-                          </button>
-                        )}
-                        <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(a.id)}>
-                          Eliminar
-                        </button>
-                      </div>
+                      <span className={`estado-badge estado-${a.estado}`}>
+                        {ESTADOS[a.estado] || a.estado}
+                      </span>
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td>{a.fecha}</td>
+                    {puedeEditar && (
+                      <td>
+                        <div className="tabla-acciones">
+                          {a.estado === 'A' && (
+                            <button className="btn-accion btn-justificar" onClick={() => handleJustificar(a.id)}>
+                              Justificar
+                            </button>
+                          )}
+                          <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(a.id)}>
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -209,17 +349,35 @@ function Asistencias() {
               <div className="form-group">
                 <label>Estudiante</label>
                 <select name="estudianteId" value={form.estudianteId} onChange={handleChange} required>
-                  {estudiantes.map((e) => (
-                    <option key={e.id} value={e.id}>{e.nombre}</option>
-                  ))}
+                  <option value="">Selecciona un estudiante</option>
+                  {estudiantesSinRegistro.length > 0 ? (
+                    <>
+                      <optgroup label="Sin registrar hoy">
+                        {estudiantesSinRegistro.map((e) => (
+                          <option key={e.id} value={e.id}>{e.nombre} ({e.seccion})</option>
+                        ))}
+                      </optgroup>
+                      {estudiantesFiltrados.filter((e) => !estudiantesSinRegistro.some((s) => s.id === e.id)).length > 0 && (
+                        <optgroup label="Ya registrados">
+                          {estudiantesFiltrados.filter((e) => !estudiantesSinRegistro.some((s) => s.id === e.id)).map((e) => (
+                            <option key={e.id} value={e.id}>{e.nombre} ({e.seccion})</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </>
+                  ) : (
+                    estudiantesFiltrados.map((e) => (
+                      <option key={e.id} value={e.id}>{e.nombre} ({e.seccion})</option>
+                    ))
+                  )}
                 </select>
               </div>
 
               <div className="form-group">
                 <label>Materia</label>
                 <select name="materiaId" value={form.materiaId} onChange={handleChange} required>
-                  {materias.map((m) => (
-                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                  {materiasDisponibles.map((m) => (
+                    <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) - {m.nivel}</option>
                   ))}
                 </select>
               </div>

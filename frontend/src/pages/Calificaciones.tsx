@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import apiClient from '../api/client';
 import type { CalificacionRequest, CalificacionResponse } from '../types/calificacion';
 import type { EstudianteResponse } from '../types/estudiante';
@@ -19,6 +19,11 @@ function Calificaciones() {
   const [docentes, setDocentes] = useState<DocenteResponse[]>([]);
   const [materias, setMaterias] = useState<MateriaResponse[]>([]);
   const [actorId, setActorId] = useState('');
+  const [miDocenteId, setMiDocenteId] = useState('');
+
+  // Filtros
+  const [filtroMateriaId, setFiltroMateriaId] = useState('');
+  const [filtroSeccion, setFiltroSeccion] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -51,7 +56,13 @@ function Calificaciones() {
       const miUsuario = usuRes.data.find((u) => u.email === emailActual);
       if (miUsuario) setActorId(miUsuario.id);
 
-      if (rol === 'ESTUDIANTE') {
+      if (rol === 'DOCENTE') {
+        const yo = docRes.data.find((d) => d.email === emailActual);
+        if (yo) setMiDocenteId(yo.id);
+        const todasRes = await apiClient.get<CalificacionResponse[]>('/calificaciones');
+        const propias = yo ? todasRes.data.filter((c) => c.docenteId === yo.id) : [];
+        setCalificaciones(propias);
+      } else if (rol === 'ESTUDIANTE') {
         const yo = estRes.data.find((e) => e.email === emailActual);
         if (yo) {
           const califRes = await apiClient.get<CalificacionResponse[]>(`/calificaciones/estudiante/${yo.id}`);
@@ -59,11 +70,6 @@ function Calificaciones() {
         } else {
           setCalificaciones([]);
         }
-      } else if (rol === 'DOCENTE') {
-        const yo = docRes.data.find((d) => d.email === emailActual);
-        const todasRes = await apiClient.get<CalificacionResponse[]>('/calificaciones');
-        const propias = yo ? todasRes.data.filter((c) => c.docenteId === yo.id) : [];
-        setCalificaciones(propias);
       } else if (rol === 'REPRESENTANTE') {
         const misEstudianteIds = estRes.data
           .filter((e) => e.representanteId === miUsuario?.id)
@@ -86,15 +92,65 @@ function Calificaciones() {
     cargarDatos();
   }, []);
 
+  // Materias disponibles según rol
+  const materiasDisponibles = useMemo(() => {
+    if (rol === 'DOCENTE' && miDocenteId) {
+      return materias.filter((m) => {
+        if (m.docenteId === miDocenteId) return true;
+        if (m.docentesPorJornada && m.docentesPorJornada.some((dj) => dj.docenteId === miDocenteId)) return true;
+        return false;
+      });
+    }
+    return materias;
+  }, [materias, miDocenteId, rol]);
+
+  // Materia seleccionada en el filtro
+  const materiaSeleccionada = useMemo(() => {
+    return materias.find((m) => m.id === filtroMateriaId);
+  }, [materias, filtroMateriaId]);
+
+  // Secciones disponibles para el nivel de la materia seleccionada
+  const seccionesDisponibles = useMemo(() => {
+    if (!materiaSeleccionada) return [];
+    const nivel = materiaSeleccionada.nivel;
+    const secciones = [...new Set(estudiantes.filter((e) => e.nivel === nivel).map((e) => e.seccion))];
+    return secciones.sort();
+  }, [estudiantes, materiaSeleccionada]);
+
+  // Estudiantes filtrados por materia (nivel) y sección
+  const estudiantesFiltrados = useMemo(() => {
+    if (!materiaSeleccionada) return [];
+    let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
+    if (filtroSeccion) {
+      filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
+    }
+    return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [estudiantes, materiaSeleccionada, filtroSeccion]);
+
+  // Calificaciones filtradas por materia y sección
+  const calificacionesFiltradas = useMemo(() => {
+    let filtradas = calificaciones;
+    if (filtroMateriaId) {
+      filtradas = filtradas.filter((c) => c.materiaId === filtroMateriaId);
+    }
+    if (filtroSeccion && materiaSeleccionada) {
+      const idsEstudiantesSeccion = estudiantes
+        .filter((e) => e.nivel === materiaSeleccionada.nivel && e.seccion === filtroSeccion)
+        .map((e) => e.id);
+      filtradas = filtradas.filter((c) => idsEstudiantesSeccion.includes(c.estudianteId));
+    }
+    return filtradas;
+  }, [calificaciones, filtroMateriaId, filtroSeccion, estudiantes, materiaSeleccionada]);
+
   const abrirNuevo = () => {
     setEditandoId(null);
     setForm({
       valor: 0,
       tipo: 'PARCIAL',
       fechaRegistro: new Date().toISOString().slice(0, 10),
-      estudianteId: estudiantes[0]?.id || '',
-      materiaId: materias[0]?.id || '',
-      docenteId: docentes[0]?.id || '',
+      estudianteId: estudiantesFiltrados[0]?.id || '',
+      materiaId: filtroMateriaId || materiasDisponibles[0]?.id || '',
+      docenteId: miDocenteId || docentes[0]?.id || '',
     });
     setError('');
     setModalAbierto(true);
@@ -155,25 +211,65 @@ function Calificaciones() {
     <div className="calificaciones-container">
       <div className="calificaciones-header">
         <h1>Calificaciones</h1>
-        {puedeEditar && (
-          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantes.length === 0 || materias.length === 0}>
+        {puedeEditar && filtroMateriaId && (
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantesFiltrados.length === 0}>
             + Nueva calificación
           </button>
+        )}
+      </div>
+
+      {/* Filtros */}
+      <div className="filtros-container">
+        <div className="filtro-group">
+          <label>Materia</label>
+          <select
+            value={filtroMateriaId}
+            onChange={(e) => {
+              setFiltroMateriaId(e.target.value);
+              setFiltroSeccion('');
+            }}
+          >
+            <option value="">— Selecciona una materia —</option>
+            {materiasDisponibles.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.nombre} ({m.codigo}) - {m.nivel}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {filtroMateriaId && seccionesDisponibles.length > 0 && (
+          <div className="filtro-group">
+            <label>Sección</label>
+            <select value={filtroSeccion} onChange={(e) => setFiltroSeccion(e.target.value)}>
+              <option value="">Todas las secciones</option>
+              {seccionesDisponibles.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {filtroMateriaId && (
+          <div className="filtro-info">
+            {estudiantesFiltrados.length} estudiantes · {calificacionesFiltradas.length} calificaciones
+          </div>
         )}
       </div>
 
       <div className="calificaciones-table-wrapper">
         {loading ? (
           <div className="calificaciones-cargando">Cargando calificaciones...</div>
-        ) : calificaciones.length === 0 ? (
-          <div className="calificaciones-vacio">No hay calificaciones registradas todavía.</div>
+        ) : !filtroMateriaId ? (
+          <div className="calificaciones-vacio">Selecciona una materia para ver las calificaciones.</div>
+        ) : calificacionesFiltradas.length === 0 ? (
+          <div className="calificaciones-vacio">No hay calificaciones registradas para esta materia.</div>
         ) : (
           <table className="calificaciones-table">
             <thead>
               <tr>
                 <th>Estudiante</th>
-                <th>Materia</th>
-                <th>Docente</th>
+                <th>Sección</th>
                 <th>Tipo</th>
                 <th>Nota</th>
                 <th>Fecha</th>
@@ -181,32 +277,34 @@ function Calificaciones() {
               </tr>
             </thead>
             <tbody>
-              {calificaciones.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.estudianteNombre}</td>
-                  <td>{c.materiaNombre}</td>
-                  <td>{c.docenteNombre}</td>
-                  <td>{c.tipo}</td>
-                  <td>
-                    <span className={`valor-nota ${c.valor >= 7 ? 'valor-aprobado' : 'valor-reprobado'}`}>
-                      {c.valor.toFixed(2)}
-                    </span>
-                  </td>
-                  <td>{c.fechaRegistro}</td>
-                  {puedeEditar && (
+              {calificacionesFiltradas.map((c) => {
+                const est = estudiantes.find((e) => e.id === c.estudianteId);
+                return (
+                  <tr key={c.id}>
+                    <td>{c.estudianteNombre}</td>
+                    <td>{est?.seccion || '—'}</td>
+                    <td>{c.tipo}</td>
                     <td>
-                      <div className="tabla-acciones">
-                        <button className="btn-accion btn-editar" onClick={() => abrirEditar(c)}>
-                          Editar
-                        </button>
-                        <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
-                          Eliminar
-                        </button>
-                      </div>
+                      <span className={`valor-nota ${c.valor >= 7 ? 'valor-aprobado' : 'valor-reprobado'}`}>
+                        {c.valor.toFixed(2)}
+                      </span>
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td>{c.fechaRegistro}</td>
+                    {puedeEditar && (
+                      <td>
+                        <div className="tabla-acciones">
+                          <button className="btn-accion btn-editar" onClick={() => abrirEditar(c)}>
+                            Editar
+                          </button>
+                          <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -223,8 +321,9 @@ function Calificaciones() {
               <div className="form-group">
                 <label>Estudiante</label>
                 <select name="estudianteId" value={form.estudianteId} onChange={handleChange} required>
-                  {estudiantes.map((e) => (
-                    <option key={e.id} value={e.id}>{e.nombre}</option>
+                  <option value="">Selecciona un estudiante</option>
+                  {estudiantesFiltrados.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nombre} ({e.seccion})</option>
                   ))}
                 </select>
               </div>
@@ -232,20 +331,22 @@ function Calificaciones() {
               <div className="form-group">
                 <label>Materia</label>
                 <select name="materiaId" value={form.materiaId} onChange={handleChange} required>
-                  {materias.map((m) => (
-                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                  {materiasDisponibles.map((m) => (
+                    <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) - {m.nivel}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="form-group">
-                <label>Docente</label>
-                <select name="docenteId" value={form.docenteId} onChange={handleChange} required>
-                  {docentes.map((d) => (
-                    <option key={d.id} value={d.id}>{d.nombre}</option>
-                  ))}
-                </select>
-              </div>
+              {rol !== 'DOCENTE' && (
+                <div className="form-group">
+                  <label>Docente</label>
+                  <select name="docenteId" value={form.docenteId} onChange={handleChange} required>
+                    {docentes.map((d) => (
+                      <option key={d.id} value={d.id}>{d.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Tipo</label>
