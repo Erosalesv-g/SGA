@@ -134,11 +134,18 @@ function Asistencias() {
     return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [estudiantes, materiaSeleccionada, filtroSeccion]);
 
-  // Asistencias filtradas
+  // Asistencias filtradas por materia, jornada, sección y fecha
   const asistenciasFiltradas = useMemo(() => {
     let filtradas = asistencias;
     if (filtroMateriaId) {
       filtradas = filtradas.filter((a) => a.materiaId === filtroMateriaId);
+    }
+    if (rol === 'DOCENTE' && miJornada && materiaSeleccionada) {
+      const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
+      const idsJornada = estudiantes
+        .filter((e) => e.nivel === materiaSeleccionada.nivel && e.seccion.endsWith(sufijo))
+        .map((e) => e.id);
+      filtradas = filtradas.filter((a) => idsJornada.includes(a.estudianteId));
     }
     if (filtroSeccion && materiaSeleccionada) {
       const idsEstudiantesSeccion = estudiantes
@@ -150,7 +157,7 @@ function Asistencias() {
       filtradas = filtradas.filter((a) => a.fecha === filtroFecha);
     }
     return filtradas;
-  }, [asistencias, filtroMateriaId, filtroSeccion, filtroFecha, estudiantes, materiaSeleccionada]);
+  }, [asistencias, filtroMateriaId, filtroSeccion, filtroFecha, estudiantes, materiaSeleccionada, rol, miJornada]);
 
   // Estudiantes sin asistencia registrada hoy (para registro rápido)
   const estudiantesSinRegistro = useMemo(() => {

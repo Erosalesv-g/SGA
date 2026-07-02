@@ -117,15 +117,28 @@ function Calificaciones() {
     return secciones.sort();
   }, [estudiantes, materiaSeleccionada]);
 
-  // Estudiantes filtrados por materia (nivel) y sección
-  const estudiantesFiltrados = useMemo(() => {
-    if (!materiaSeleccionada) return [];
-    let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
-    if (filtroSeccion) {
-      filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
+  // Calificaciones filtradas por materia, jornada y sección
+  const calificacionesFiltradas = useMemo(() => {
+    let filtradas = calificaciones;
+    if (filtroMateriaId) {
+      filtradas = filtradas.filter((c) => c.materiaId === filtroMateriaId);
     }
-    return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [estudiantes, materiaSeleccionada, filtroSeccion]);
+    // Filtrar por jornada del docente
+    if (rol === 'DOCENTE' && miJornada && materiaSeleccionada) {
+      const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
+      const idsJornada = estudiantes
+        .filter((e) => e.nivel === materiaSeleccionada.nivel && e.seccion.endsWith(sufijo))
+        .map((e) => e.id);
+      filtradas = filtradas.filter((c) => idsJornada.includes(c.estudianteId));
+    }
+    if (filtroSeccion && materiaSeleccionada) {
+      const idsEstudiantesSeccion = estudiantes
+        .filter((e) => e.nivel === materiaSeleccionada.nivel && e.seccion === filtroSeccion)
+        .map((e) => e.id);
+      filtradas = filtradas.filter((c) => idsEstudiantesSeccion.includes(c.estudianteId));
+    }
+    return filtradas;
+  }, [calificaciones, filtroMateriaId, filtroSeccion, estudiantes, materiaSeleccionada, rol, miJornada]);
 
   // Calificaciones filtradas por materia y sección
   const calificacionesFiltradas = useMemo(() => {
