@@ -117,13 +117,33 @@ function Calificaciones() {
     return secciones.sort();
   }, [estudiantes, materiaSeleccionada]);
 
+  // Jornada del docente para la materia seleccionada
+  const miJornada = useMemo(() => {
+    if (!materiaSeleccionada || !miDocenteId) return '';
+    const dj = materiaSeleccionada.docentesPorJornada?.find((d) => d.docenteId === miDocenteId);
+    return dj ? dj.jornada : '';
+  }, [materiaSeleccionada, miDocenteId]);
+
+  // Estudiantes filtrados por materia (nivel), jornada y sección
+  const estudiantesFiltrados = useMemo(() => {
+    if (!materiaSeleccionada) return [];
+    let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
+    if (rol === 'DOCENTE' && miJornada) {
+      const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
+      filtrados = filtrados.filter((e) => e.seccion.endsWith(sufijo));
+    }
+    if (filtroSeccion) {
+      filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
+    }
+    return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada]);
+
   // Calificaciones filtradas por materia, jornada y sección
   const calificacionesFiltradas = useMemo(() => {
     let filtradas = calificaciones;
     if (filtroMateriaId) {
       filtradas = filtradas.filter((c) => c.materiaId === filtroMateriaId);
     }
-    // Filtrar por jornada del docente
     if (rol === 'DOCENTE' && miJornada && materiaSeleccionada) {
       const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
       const idsJornada = estudiantes
@@ -139,21 +159,6 @@ function Calificaciones() {
     }
     return filtradas;
   }, [calificaciones, filtroMateriaId, filtroSeccion, estudiantes, materiaSeleccionada, rol, miJornada]);
-
-  // Calificaciones filtradas por materia y sección
-  const calificacionesFiltradas = useMemo(() => {
-    let filtradas = calificaciones;
-    if (filtroMateriaId) {
-      filtradas = filtradas.filter((c) => c.materiaId === filtroMateriaId);
-    }
-    if (filtroSeccion && materiaSeleccionada) {
-      const idsEstudiantesSeccion = estudiantes
-        .filter((e) => e.nivel === materiaSeleccionada.nivel && e.seccion === filtroSeccion)
-        .map((e) => e.id);
-      filtradas = filtradas.filter((c) => idsEstudiantesSeccion.includes(c.estudianteId));
-    }
-    return filtradas;
-  }, [calificaciones, filtroMateriaId, filtroSeccion, estudiantes, materiaSeleccionada]);
 
   const abrirNuevo = () => {
     setEditandoId(null);

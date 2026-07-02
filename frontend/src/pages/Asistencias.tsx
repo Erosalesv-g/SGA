@@ -124,15 +124,26 @@ function Asistencias() {
     return secciones.sort();
   }, [estudiantes, materiaSeleccionada]);
 
-  // Estudiantes filtrados
+  // Jornada del docente para la materia seleccionada
+  const miJornada = useMemo(() => {
+    if (!materiaSeleccionada || !miDocenteId) return '';
+    const dj = materiaSeleccionada.docentesPorJornada?.find((d) => d.docenteId === miDocenteId);
+    return dj ? dj.jornada : '';
+  }, [materiaSeleccionada, miDocenteId]);
+
+  // Estudiantes filtrados por materia (nivel), jornada y sección
   const estudiantesFiltrados = useMemo(() => {
     if (!materiaSeleccionada) return [];
     let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
+    if (rol === 'DOCENTE' && miJornada) {
+      const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
+      filtrados = filtrados.filter((e) => e.seccion.endsWith(sufijo));
+    }
     if (filtroSeccion) {
       filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
     }
     return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [estudiantes, materiaSeleccionada, filtroSeccion]);
+  }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada]);
 
   // Asistencias filtradas por materia, jornada, sección y fecha
   const asistenciasFiltradas = useMemo(() => {
