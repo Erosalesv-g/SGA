@@ -97,8 +97,12 @@ function Asistencias() {
         return false;
       });
     }
+    if (rol === 'ESTUDIANTE') {
+      const yo = estudiantes.find((e) => e.email === emailActual);
+      if (yo) return materias.filter((m) => m.nivel === yo.nivel);
+    }
     return materias;
-  }, [materias, miDocenteId, rol]);
+  }, [materias, miDocenteId, rol, estudiantes, emailActual]);
 
   const materiaSeleccionada = useMemo(() => {
     return materias.find((m) => m.id === filtroMateriaId);
