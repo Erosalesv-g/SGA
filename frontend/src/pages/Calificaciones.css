@@ -79,3 +79,53 @@
   outline: none;
   border-color: #6b1e2b;
 }
+
+/* Filtros */
+.filtros-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.filtro-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.filtro-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b1e2b;
+  text-transform: uppercase;
+}
+.filtro-group select,
+.filtro-group input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid #d4cbc4;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 220px;
+  background: #faf7f4;
+}
+.filtro-group select:focus,
+.filtro-group input[type="date"]:focus {
+  outline: none;
+  border-color: #6b1e2b;
+}
+.filtro-info {
+  font-size: 13px;
+  color: #8a8584;
+  padding: 8px 0;
+}
+.estado-mini { font-weight: 600; margin-left: 4px; }
+.estado-mini.estado-P { color: #2e7d32; }
+.estado-mini.estado-A { color: #c62828; }
+.estado-mini.estado-J { color: #ef6c00; }
+.estado-mini.estado-T { color: #f9a825; }
+.sin-registro { color: #c62828; font-weight: 500; }
+.btn-justificar { background: #ef6c00 !important; color: #fff !important; border: none !important; }
