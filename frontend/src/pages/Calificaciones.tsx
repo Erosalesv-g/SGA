@@ -101,8 +101,15 @@ function Calificaciones() {
       const yo = estudiantes.find((e) => e.email === emailActual);
       if (yo) return materias.filter((m) => m.nivel === yo.nivel);
     }
+    if (rol === 'REPRESENTANTE') {
+      const misHijos = estudiantes.filter((e) => e.representanteId === actorId);
+      if (misHijos.length > 0) {
+        const niveles = [...new Set(misHijos.map((e) => e.nivel))];
+        return materias.filter((m) => niveles.includes(m.nivel || ''));
+      }
+    }
     return materias;
-  }, [materias, miDocenteId, rol, estudiantes, emailActual]);
+  }, [materias, miDocenteId, rol, estudiantes, emailActual, actorId]);
 
   const materiaSeleccionada = useMemo(() => {
     return materias.find((m) => m.id === filtroMateriaId);
@@ -125,9 +132,16 @@ function Calificaciones() {
       const yo = estudiantes.find((e) => e.email === emailActual);
       if (yo) filtrados = filtrados.filter((e) => e.seccion === yo.seccion);
     }
-    const secciones = [...new Set(filtrados.map((e) => e.seccion))];
-    return secciones.sort();
-  }, [estudiantes, materiaSeleccionada, rol, miJornada, emailActual]);
+    if (rol === 'REPRESENTANTE') {
+      const misHijos = estudiantes.filter((e) => e.representanteId === actorId);
+      if (misHijos.length > 0) {
+        const secciones = misHijos.map((e) => e.seccion);
+        filtrados = filtrados.filter((e) => secciones.includes(e.seccion));
+      }
+    }
+    const seccionesUnicas = [...new Set(filtrados.map((e) => e.seccion))];
+    return seccionesUnicas.sort();
+  }, [estudiantes, materiaSeleccionada, rol, miJornada, emailActual, actorId]);
 
   const estudiantesFiltrados = useMemo(() => {
     if (!materiaSeleccionada) return [];
@@ -140,11 +154,18 @@ function Calificaciones() {
       const yo = estudiantes.find((e) => e.email === emailActual);
       if (yo) filtrados = filtrados.filter((e) => e.seccion === yo.seccion);
     }
+    if (rol === 'REPRESENTANTE') {
+      const misHijos = estudiantes.filter((e) => e.representanteId === actorId);
+      if (misHijos.length > 0) {
+        const secciones = misHijos.map((e) => e.seccion);
+        filtrados = filtrados.filter((e) => secciones.includes(e.seccion));
+      }
+    }
     if (filtroSeccion) {
       filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
     }
     return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada, emailActual]);
+  }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada, emailActual, actorId]);
 
   const calificacionesFiltradas = useMemo(() => {
     let filtradas = calificaciones;
