@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 @Service
 public class MateriaService {
 
-    private static final LocalTime CORTE_JORNADA = LocalTime.of(12, 0);
+    private static final LocalTime CORTE_JORNADA = LocalTime.of(13, 0);
 
     private final MateriaRepository materiaRepository;
     private final DocenteRepository docenteRepository;
