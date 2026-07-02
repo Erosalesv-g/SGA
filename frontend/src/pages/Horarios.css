@@ -1,54 +1,100 @@
-.horarios-container {
-  width: 100%;
+.horarios-container { width: 100%; }
+.horarios-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.horarios-header h1 { margin: 0; }
+.horarios-header-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn-vista { padding: 6px 14px; border: 1px solid #d4cbc4; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; color: #666; }
+.btn-vista-activo { background: #6b1e2b; color: #fff; border-color: #6b1e2b; }
+
+.horarios-table-wrapper { background: #fff; border-radius: 12px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.horarios-table { width: 100%; border-collapse: collapse; }
+.horarios-table th { text-align: left; padding: 14px 16px; background: #f3ece4; color: #6b1e2b; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+.horarios-table td { padding: 14px 16px; border-bottom: 1px solid #f0ebe6; font-size: 14px; color: #2c2c2a; }
+.horarios-table tr:last-child td { border-bottom: none; }
+.horarios-vacio, .horarios-cargando { text-align: center; padding: 40px; color: #8a8584; background: #fff; border-radius: 12px; }
+
+/* ── Grilla semanal ── */
+.horarios-grilla-wrapper { background: #fff; border-radius: 12px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 16px; }
+
+.horarios-grilla {
+  display: grid;
+  grid-template-columns: 80px repeat(5, 1fr);
+  gap: 2px;
+  min-width: 700px;
 }
 
-.horarios-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.horarios-header h1 {
-  margin: 0;
-}
-
-.horarios-table-wrapper {
-  background-color: #ffffff;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.horarios-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.horarios-table th {
-  text-align: left;
-  padding: 14px 16px;
-  background-color: #f3ece4;
+.grilla-header {
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
   color: #6b1e2b;
+  text-transform: uppercase;
+  background: #f3ece4;
+  border-radius: 6px;
+}
+
+.grilla-hora-header { font-size: 11px; }
+
+.grilla-hora {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  background: #faf7f4;
+  border-radius: 6px;
+  min-height: 70px;
+}
+
+.hora-inicio { font-size: 14px; font-weight: 600; color: #2c2c2a; }
+.hora-fin { font-size: 11px; color: #8a8584; }
+
+.grilla-celda {
+  min-height: 70px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #faf7f4;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.grilla-celda-ocupada {
+  cursor: default;
+}
+
+.grilla-celda-ocupada:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.celda-materia {
   font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
+  line-height: 1.2;
 }
 
-.horarios-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid #f0ebe6;
-  font-size: 14px;
-  color: #2c2c2a;
+.celda-docente {
+  font-size: 11px;
+  color: #555;
+  line-height: 1.2;
 }
 
-.horarios-table tr:last-child td {
-  border-bottom: none;
+.celda-aula {
+  font-size: 10px;
+  color: #888;
+  font-weight: 500;
 }
 
-.horarios-vacio,
-.horarios-cargando {
-  text-align: center;
-  padding: 40px;
-  color: #8a8584;
+/* Responsive */
+@media (max-width: 768px) {
+  .horarios-grilla { grid-template-columns: 60px repeat(5, 1fr); gap: 1px; }
+  .grilla-header { padding: 8px 4px; font-size: 11px; }
+  .celda-materia { font-size: 11px; }
+  .celda-docente { font-size: 10px; }
+  .celda-aula { font-size: 9px; }
+  .grilla-celda { padding: 4px; min-height: 55px; }
 }
