@@ -121,9 +121,13 @@ function Calificaciones() {
       const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
       filtrados = filtrados.filter((e) => e.seccion.endsWith(sufijo));
     }
+    if (rol === 'ESTUDIANTE') {
+      const yo = estudiantes.find((e) => e.email === emailActual);
+      if (yo) filtrados = filtrados.filter((e) => e.seccion === yo.seccion);
+    }
     const secciones = [...new Set(filtrados.map((e) => e.seccion))];
     return secciones.sort();
-  }, [estudiantes, materiaSeleccionada, rol, miJornada]);
+  }, [estudiantes, materiaSeleccionada, rol, miJornada, emailActual]);
 
   const estudiantesFiltrados = useMemo(() => {
     if (!materiaSeleccionada) return [];
@@ -132,11 +136,15 @@ function Calificaciones() {
       const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
       filtrados = filtrados.filter((e) => e.seccion.endsWith(sufijo));
     }
+    if (rol === 'ESTUDIANTE') {
+      const yo = estudiantes.find((e) => e.email === emailActual);
+      if (yo) filtrados = filtrados.filter((e) => e.seccion === yo.seccion);
+    }
     if (filtroSeccion) {
       filtrados = filtrados.filter((e) => e.seccion === filtroSeccion);
     }
     return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada]);
+  }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada, emailActual]);
 
   const calificacionesFiltradas = useMemo(() => {
     let filtradas = calificaciones;
