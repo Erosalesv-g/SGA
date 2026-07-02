@@ -21,7 +21,6 @@ function Calificaciones() {
   const [actorId, setActorId] = useState('');
   const [miDocenteId, setMiDocenteId] = useState('');
 
-  // Filtros
   const [filtroMateriaId, setFiltroMateriaId] = useState('');
   const [filtroSeccion, setFiltroSeccion] = useState('');
 
@@ -88,11 +87,8 @@ function Calificaciones() {
     }
   };
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+  useEffect(() => { cargarDatos(); }, []);
 
-  // Materias disponibles según rol
   const materiasDisponibles = useMemo(() => {
     if (rol === 'DOCENTE' && miDocenteId) {
       return materias.filter((m) => {
@@ -104,27 +100,27 @@ function Calificaciones() {
     return materias;
   }, [materias, miDocenteId, rol]);
 
-  // Materia seleccionada en el filtro
   const materiaSeleccionada = useMemo(() => {
     return materias.find((m) => m.id === filtroMateriaId);
   }, [materias, filtroMateriaId]);
 
-  // Secciones disponibles para el nivel de la materia seleccionada
-  const seccionesDisponibles = useMemo(() => {
-    if (!materiaSeleccionada) return [];
-    const nivel = materiaSeleccionada.nivel;
-    const secciones = [...new Set(estudiantes.filter((e) => e.nivel === nivel).map((e) => e.seccion))];
-    return secciones.sort();
-  }, [estudiantes, materiaSeleccionada]);
-
-  // Jornada del docente para la materia seleccionada
   const miJornada = useMemo(() => {
     if (!materiaSeleccionada || !miDocenteId) return '';
     const dj = materiaSeleccionada.docentesPorJornada?.find((d) => d.docenteId === miDocenteId);
     return dj ? dj.jornada : '';
   }, [materiaSeleccionada, miDocenteId]);
 
-  // Estudiantes filtrados por materia (nivel), jornada y sección
+  const seccionesDisponibles = useMemo(() => {
+    if (!materiaSeleccionada) return [];
+    let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
+    if (rol === 'DOCENTE' && miJornada) {
+      const sufijo = miJornada === 'Matutina' ? '-M' : '-V';
+      filtrados = filtrados.filter((e) => e.seccion.endsWith(sufijo));
+    }
+    const secciones = [...new Set(filtrados.map((e) => e.seccion))];
+    return secciones.sort();
+  }, [estudiantes, materiaSeleccionada, rol, miJornada]);
+
   const estudiantesFiltrados = useMemo(() => {
     if (!materiaSeleccionada) return [];
     let filtrados = estudiantes.filter((e) => e.nivel === materiaSeleccionada.nivel);
@@ -138,7 +134,6 @@ function Calificaciones() {
     return filtrados.sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [estudiantes, materiaSeleccionada, filtroSeccion, rol, miJornada]);
 
-  // Calificaciones filtradas por materia, jornada y sección
   const calificacionesFiltradas = useMemo(() => {
     let filtradas = calificaciones;
     if (filtroMateriaId) {
@@ -163,29 +158,19 @@ function Calificaciones() {
   const abrirNuevo = () => {
     setEditandoId(null);
     setForm({
-      valor: 0,
-      tipo: 'PARCIAL',
+      valor: 0, tipo: 'PARCIAL',
       fechaRegistro: new Date().toISOString().slice(0, 10),
       estudianteId: estudiantesFiltrados[0]?.id || '',
       materiaId: filtroMateriaId || materiasDisponibles[0]?.id || '',
       docenteId: miDocenteId || docentes[0]?.id || '',
     });
-    setError('');
-    setModalAbierto(true);
+    setError(''); setModalAbierto(true);
   };
 
   const abrirEditar = (calif: CalificacionResponse) => {
     setEditandoId(calif.id);
-    setForm({
-      valor: calif.valor,
-      tipo: calif.tipo,
-      fechaRegistro: calif.fechaRegistro,
-      estudianteId: calif.estudianteId,
-      materiaId: calif.materiaId,
-      docenteId: calif.docenteId,
-    });
-    setError('');
-    setModalAbierto(true);
+    setForm({ valor: calif.valor, tipo: calif.tipo, fechaRegistro: calif.fechaRegistro, estudianteId: calif.estudianteId, materiaId: calif.materiaId, docenteId: calif.docenteId });
+    setError(''); setModalAbierto(true);
   };
 
   const cerrarModal = () => setModalAbierto(false);
@@ -196,33 +181,19 @@ function Calificaciones() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setGuardando(true);
-
+    e.preventDefault(); setError(''); setGuardando(true);
     try {
-      if (editandoId) {
-        await apiClient.put(`/calificaciones/${editandoId}?actorId=${actorId}`, form);
-      } else {
-        await apiClient.post(`/calificaciones?actorId=${actorId}`, form);
-      }
-      await cargarDatos();
-      setModalAbierto(false);
-    } catch {
-      setError('No se pudo guardar la calificación. Revisa los datos.');
-    } finally {
-      setGuardando(false);
-    }
+      if (editandoId) { await apiClient.put(`/calificaciones/${editandoId}?actorId=${actorId}`, form); }
+      else { await apiClient.post(`/calificaciones?actorId=${actorId}`, form); }
+      await cargarDatos(); setModalAbierto(false);
+    } catch { setError('No se pudo guardar la calificación. Revisa los datos.'); }
+    finally { setGuardando(false); }
   };
 
   const handleEliminar = async (id: string) => {
     if (!confirm('¿Eliminar esta calificación?')) return;
-    try {
-      await apiClient.delete(`/calificaciones/${id}?actorId=${actorId}`);
-      await cargarDatos();
-    } catch {
-      setError('No se pudo eliminar la calificación');
-    }
+    try { await apiClient.delete(`/calificaciones/${id}?actorId=${actorId}`); await cargarDatos(); }
+    catch { setError('No se pudo eliminar la calificación'); }
   };
 
   return (
@@ -230,70 +201,39 @@ function Calificaciones() {
       <div className="calificaciones-header">
         <h1>Calificaciones</h1>
         {puedeEditar && filtroMateriaId && (
-          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantesFiltrados.length === 0}>
-            + Nueva calificación
-          </button>
+          <button className="btn-nuevo" onClick={abrirNuevo} disabled={estudiantesFiltrados.length === 0}>+ Nueva calificación</button>
         )}
       </div>
 
-      {/* Filtros */}
       <div className="filtros-container">
         <div className="filtro-group">
           <label>Materia</label>
-          <select
-            value={filtroMateriaId}
-            onChange={(e) => {
-              setFiltroMateriaId(e.target.value);
-              setFiltroSeccion('');
-            }}
-          >
+          <select value={filtroMateriaId} onChange={(e) => { setFiltroMateriaId(e.target.value); setFiltroSeccion(''); }}>
             <option value="">— Selecciona una materia —</option>
-            {materiasDisponibles.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nombre} ({m.codigo}) - {m.nivel}
-              </option>
-            ))}
+            {materiasDisponibles.map((m) => (<option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) - {m.nivel}</option>))}
           </select>
         </div>
-
         {filtroMateriaId && seccionesDisponibles.length > 0 && (
           <div className="filtro-group">
             <label>Sección</label>
             <select value={filtroSeccion} onChange={(e) => setFiltroSeccion(e.target.value)}>
               <option value="">Todas las secciones</option>
-              {seccionesDisponibles.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              {seccionesDisponibles.map((s) => (<option key={s} value={s}>{s}</option>))}
             </select>
           </div>
         )}
-
         {filtroMateriaId && (
-          <div className="filtro-info">
-            {estudiantesFiltrados.length} estudiantes · {calificacionesFiltradas.length} calificaciones
-          </div>
+          <div className="filtro-info">{estudiantesFiltrados.length} estudiantes · {calificacionesFiltradas.length} calificaciones</div>
         )}
       </div>
 
       <div className="calificaciones-table-wrapper">
-        {loading ? (
-          <div className="calificaciones-cargando">Cargando calificaciones...</div>
-        ) : !filtroMateriaId ? (
-          <div className="calificaciones-vacio">Selecciona una materia para ver las calificaciones.</div>
-        ) : calificacionesFiltradas.length === 0 ? (
-          <div className="calificaciones-vacio">No hay calificaciones registradas para esta materia.</div>
-        ) : (
+        {loading ? (<div className="calificaciones-cargando">Cargando calificaciones...</div>)
+        : !filtroMateriaId ? (<div className="calificaciones-vacio">Selecciona una materia para ver las calificaciones.</div>)
+        : calificacionesFiltradas.length === 0 ? (<div className="calificaciones-vacio">No hay calificaciones registradas para esta materia.</div>)
+        : (
           <table className="calificaciones-table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Sección</th>
-                <th>Tipo</th>
-                <th>Nota</th>
-                <th>Fecha</th>
-                {puedeEditar && <th>Acciones</th>}
-              </tr>
-            </thead>
+            <thead><tr><th>Estudiante</th><th>Sección</th><th>Tipo</th><th>Nota</th><th>Fecha</th>{puedeEditar && <th>Acciones</th>}</tr></thead>
             <tbody>
               {calificacionesFiltradas.map((c) => {
                 const est = estudiantes.find((e) => e.id === c.estudianteId);
@@ -302,26 +242,13 @@ function Calificaciones() {
                     <td>{c.estudianteNombre}</td>
                     <td>{est?.seccion || '—'}</td>
                     <td>{c.tipo}</td>
-                    <td>
-                      <span className={`valor-nota ${c.valor >= 7 ? 'valor-aprobado' : 'valor-reprobado'}`}>
-                        {c.valor.toFixed(2)}
-                      </span>
-                    </td>
+                    <td><span className={`valor-nota ${c.valor >= 7 ? 'valor-aprobado' : 'valor-reprobado'}`}>{c.valor.toFixed(2)}</span></td>
                     <td>{c.fechaRegistro}</td>
-                    {puedeEditar && (
-                      <td>
-                        <div className="tabla-acciones">
-                          <button className="btn-accion btn-editar" onClick={() => abrirEditar(c)}>
-                            Editar
-                          </button>
-                          <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
+                    {puedeEditar && (<td><div className="tabla-acciones">
+                      <button className="btn-accion btn-editar" onClick={() => abrirEditar(c)}>Editar</button>
+                      <button className="btn-accion btn-desactivar" onClick={() => handleEliminar(c.id)}>Eliminar</button>
+                    </div></td>)}
+                  </tr>);
               })}
             </tbody>
           </table>
@@ -332,81 +259,38 @@ function Calificaciones() {
         <div className="modal-overlay" onClick={cerrarModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>{editandoId ? 'Editar calificación' : 'Nueva calificación'}</h2>
-
             {error && <p className="modal-error">{error}</p>}
-
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Estudiante</label>
+              <div className="form-group"><label>Estudiante</label>
                 <select name="estudianteId" value={form.estudianteId} onChange={handleChange} required>
                   <option value="">Selecciona un estudiante</option>
-                  {estudiantesFiltrados.map((e) => (
-                    <option key={e.id} value={e.id}>{e.nombre} ({e.seccion})</option>
-                  ))}
+                  {estudiantesFiltrados.map((e) => (<option key={e.id} value={e.id}>{e.nombre} ({e.seccion})</option>))}
                 </select>
               </div>
-
-              <div className="form-group">
-                <label>Materia</label>
+              <div className="form-group"><label>Materia</label>
                 <select name="materiaId" value={form.materiaId} onChange={handleChange} required>
-                  {materiasDisponibles.map((m) => (
-                    <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) - {m.nivel}</option>
-                  ))}
+                  {materiasDisponibles.map((m) => (<option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) - {m.nivel}</option>))}
                 </select>
               </div>
-
-              {rol !== 'DOCENTE' && (
-                <div className="form-group">
-                  <label>Docente</label>
-                  <select name="docenteId" value={form.docenteId} onChange={handleChange} required>
-                    {docentes.map((d) => (
-                      <option key={d.id} value={d.id}>{d.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label>Tipo</label>
+              {rol !== 'DOCENTE' && (<div className="form-group"><label>Docente</label>
+                <select name="docenteId" value={form.docenteId} onChange={handleChange} required>
+                  {docentes.map((d) => (<option key={d.id} value={d.id}>{d.nombre}</option>))}
+                </select>
+              </div>)}
+              <div className="form-group"><label>Tipo</label>
                 <select name="tipo" value={form.tipo} onChange={handleChange} required>
-                  {TIPOS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {TIPOS.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
               </div>
-
-              <div className="form-group">
-                <label>Nota (0 a 10)</label>
-                <input
-                  type="number"
-                  name="valor"
-                  value={form.valor}
-                  onChange={handleChange}
-                  min="0"
-                  max="10"
-                  step="0.01"
-                  required
-                />
+              <div className="form-group"><label>Nota (0 a 10)</label>
+                <input type="number" name="valor" value={form.valor} onChange={handleChange} min="0" max="10" step="0.01" required />
               </div>
-
-              <div className="form-group">
-                <label>Fecha</label>
-                <input
-                  type="date"
-                  name="fechaRegistro"
-                  value={form.fechaRegistro}
-                  onChange={handleChange}
-                  required
-                />
+              <div className="form-group"><label>Fecha</label>
+                <input type="date" name="fechaRegistro" value={form.fechaRegistro} onChange={handleChange} required />
               </div>
-
               <div className="modal-actions">
-                <button type="button" className="btn-cancelar" onClick={cerrarModal}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn-guardar" disabled={guardando}>
-                  {guardando ? 'Guardando...' : 'Guardar'}
-                </button>
+                <button type="button" className="btn-cancelar" onClick={cerrarModal}>Cancelar</button>
+                <button type="submit" className="btn-guardar" disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar'}</button>
               </div>
             </form>
           </div>
