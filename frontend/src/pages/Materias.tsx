@@ -106,6 +106,31 @@ function Materias() {
     }
   };
 
+  const renderDocentes = (m: MateriaResponse) => {
+    // Si hay docentes por jornada (desde horarios), mostrar badges
+    if (m.docentesPorJornada && m.docentesPorJornada.length > 0) {
+      return (
+        <div className="docentes-jornada-list">
+          {m.docentesPorJornada.map((dj, idx) => (
+            <div key={idx} className="docente-jornada-item">
+              <span className={`jornada-badge ${dj.jornada === 'Matutina' ? 'jornada-matutina' : 'jornada-vespertina'}`}>
+                {dj.jornada}
+              </span>
+              <span className="docente-jornada-nombre">{dj.docenteNombre}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Fallback: docente directo de la materia
+    if (m.docenteNombre) {
+      return <span>{m.docenteNombre}</span>;
+    }
+
+    return <span className="sin-asignar">Sin asignar</span>;
+  };
+
   return (
     <div className="materias-container">
       <div className="materias-header">
@@ -139,7 +164,7 @@ function Materias() {
                   <td>{m.nombre}</td>
                   <td>{m.nivel || '—'}</td>
                   <td>{m.creditos}</td>
-                  <td>{m.docenteNombre || '—'}</td>
+                  <td>{renderDocentes(m)}</td>
                   <td>
                     <div className="tabla-acciones">
                       <button className="btn-accion btn-editar" onClick={() => abrirEditar(m)}>

@@ -52,3 +52,48 @@
   padding: 40px;
   color: #8a8584;
 }
+
+/* ── Docentes por jornada ── */
+
+.docentes-jornada-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docente-jornada-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jornada-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.jornada-matutina {
+  background-color: #e8f4fd;
+  color: #1a5f8a;
+}
+
+.jornada-vespertina {
+  background-color: #f3e8fd;
+  color: #6b2fa0;
+}
+
+.docente-jornada-nombre {
+  font-size: 13px;
+  color: #2c2c2a;
+}
+
+.sin-asignar {
+  color: #b0a8a4;
+  font-style: italic;
+  font-size: 13px;
+}

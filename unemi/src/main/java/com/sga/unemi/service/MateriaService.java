@@ -1,82 +1,84 @@
 package com.sga.unemi.service;
 
+import com.sga.unemi.dto.DocenteJornadaInfo;
 import com.sga.unemi.dto.MateriaRequest;
 import com.sga.unemi.dto.MateriaResponse;
 import com.sga.unemi.model.Docente;
+import com.sga.unemi.model.Horario;
 import com.sga.unemi.model.Materia;
 import com.sga.unemi.repository.DocenteRepository;
+import com.sga.unemi.repository.HorarioRepository;
 import com.sga.unemi.repository.MateriaRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
+import java.time.LocalTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Lógica de negocio del catálogo de materias.
  * <p>
  * Las materias son datos de alta consulta (se leen constantemente desde
  * Calificaciones, Horarios y Recursos Pedagógicos) y baja frecuencia de
- * cambio, por lo que se cachean en Redis conforme al RNF-0008 (Optimización
- * de Consultas Frecuentes). Si Redis no está disponible, Spring Cache cae
- * de vuelta a consultar PostgreSQL directamente (comportamiento de
- * fallback por defecto de la abstracción de caché).
+ * cambio, por lo que se cachean conforme al RNF-0008 (Optimización
+ * de Consultas Frecuentes).
+ * <p>
+ * La columna de docentes se enriquece consultando los horarios asociados
+ * a cada materia, agrupando los docentes por jornada (Matutina/Vespertina)
+ * según la hora de inicio del horario.
  */
 @Service
 public class MateriaService {
 
+    private static final LocalTime CORTE_JORNADA = LocalTime.of(12, 0);
+
     private final MateriaRepository materiaRepository;
     private final DocenteRepository docenteRepository;
+    private final HorarioRepository horarioRepository;
 
-    public MateriaService(MateriaRepository materiaRepository, DocenteRepository docenteRepository) {
+    public MateriaService(MateriaRepository materiaRepository,
+                          DocenteRepository docenteRepository,
+                          HorarioRepository horarioRepository) {
         this.materiaRepository = materiaRepository;
         this.docenteRepository = docenteRepository;
+        this.horarioRepository = horarioRepository;
     }
 
     /**
-     * Lista todas las materias del catálogo.
-     * <p>
-     * El resultado se guarda en la caché {@code materias} bajo la clave
-     * {@code "todas"} la primera vez que se llama; las llamadas siguientes
-     * se sirven desde Redis hasta que el catálogo cambie (ver los métodos
-     * de creación, actualización y eliminación, que invalidan la caché).
-     *
-     * @return la lista completa de materias
+     * Lista todas las materias del catálogo, incluyendo los docentes
+     * asignados por jornada (extraídos de los horarios).
      */
     @Cacheable(value = "materias", key = "'todas'")
     public List<MateriaResponse> listarMaterias() {
-        return materiaRepository.findAll().stream()
-                .map(this::toResponse)
+        List<Materia> materias = materiaRepository.findAll();
+        List<Horario> todosHorarios = horarioRepository.findAll();
+
+        // Agrupar horarios por materia_id
+        Map<UUID, List<Horario>> horariosPorMateria = todosHorarios.stream()
+                .collect(Collectors.groupingBy(h -> h.getMateria().getId()));
+
+        return materias.stream()
+                .map(m -> toResponse(m, horariosPorMateria.getOrDefault(m.getId(), List.of())))
                 .toList();
     }
 
     /**
-     * Obtiene una materia por su id.
-     * <p>
-     * El resultado se cachea individualmente por id en la caché
-     * {@code materias}.
-     *
-     * @param id id de la materia
-     * @return la materia solicitada
-     * @throws NoSuchElementException si no existe una materia con ese id
+     * Obtiene una materia por su id, incluyendo docentes por jornada.
      */
     @Cacheable(value = "materias", key = "#id")
     public MateriaResponse obtenerMateria(UUID id) {
         Materia materia = materiaRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Materia no encontrada"));
-        return toResponse(materia);
+        List<Horario> horarios = horarioRepository.findByMateriaId(id);
+        return toResponse(materia, horarios);
     }
 
     /**
-     * Crea una nueva materia y limpia toda la caché de materias, ya que el
-     * listado completo (clave {@code "todas"}) quedaría desactualizado.
-     *
-     * @param request datos de la materia a crear
-     * @return la materia creada
+     * Crea una nueva materia y limpia toda la caché de materias.
      */
-    @CacheEvict(value = "materias", allEntries = true)
+    @CacheEvict(value = {"materias", "horarios"}, allEntries = true)
     public MateriaResponse crearMateria(MateriaRequest request) {
         Materia materia = new Materia();
         materia.setNombre(request.getNombre());
@@ -86,20 +88,13 @@ public class MateriaService {
         asignarDocente(materia, request.getDocenteId());
 
         Materia guardada = materiaRepository.save(materia);
-        return toResponse(guardada);
+        return toResponse(guardada, List.of());
     }
 
     /**
-     * Actualiza una materia existente y limpia toda la caché de materias
-     * para evitar servir datos desactualizados (tanto el listado completo
-     * como la entrada individual de esta materia).
-     *
-     * @param id      id de la materia a actualizar
-     * @param request nuevos datos de la materia
-     * @return la materia actualizada
-     * @throws NoSuchElementException si la materia o el docente no existen
+     * Actualiza una materia existente y limpia toda la caché.
      */
-    @CacheEvict(value = "materias", allEntries = true)
+    @CacheEvict(value = {"materias", "horarios"}, allEntries = true)
     public MateriaResponse actualizarMateria(UUID id, MateriaRequest request) {
         Materia materia = materiaRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Materia no encontrada"));
@@ -111,27 +106,20 @@ public class MateriaService {
         asignarDocente(materia, request.getDocenteId());
 
         Materia actualizada = materiaRepository.save(materia);
-        return toResponse(actualizada);
+        List<Horario> horarios = horarioRepository.findByMateriaId(id);
+        return toResponse(actualizada, horarios);
     }
 
     /**
-     * Elimina una materia y limpia toda la caché de materias.
-     *
-     * @param id id de la materia a eliminar
+     * Elimina una materia y limpia toda la caché.
      */
-    @CacheEvict(value = "materias", allEntries = true)
+    @CacheEvict(value = {"materias", "horarios"}, allEntries = true)
     public void eliminarMateria(UUID id) {
         materiaRepository.deleteById(id);
     }
 
     /**
-     * Asigna (o desasigna, si {@code docenteId} es nulo) el docente
-     * responsable de una materia.
-     *
-     * @param materia   la materia a la que se le asigna el docente
-     * @param docenteId id del docente a asignar, o {@code null} para
-     *                  desasignar
-     * @throws NoSuchElementException si el docente no existe
+     * Asigna (o desasigna) el docente directo de una materia.
      */
     private void asignarDocente(Materia materia, UUID docenteId) {
         if (docenteId != null) {
@@ -144,12 +132,49 @@ public class MateriaService {
     }
 
     /**
-     * Convierte una entidad {@link Materia} a su DTO de respuesta.
-     *
-     * @param materia la entidad de materia a convertir
-     * @return el DTO de respuesta correspondiente
+     * Determina la jornada según la hora de inicio del horario.
      */
-    private MateriaResponse toResponse(Materia materia) {
+    private String determinarJornada(LocalTime horaInicio) {
+        return horaInicio.isBefore(CORTE_JORNADA) ? "Matutina" : "Vespertina";
+    }
+
+    /**
+     * Extrae los docentes únicos por jornada a partir de los horarios
+     * asociados a una materia. Si un mismo docente tiene múltiples horarios
+     * en la misma jornada, aparece una sola vez.
+     */
+    private List<DocenteJornadaInfo> extraerDocentesPorJornada(List<Horario> horarios) {
+        // Usar un Set para evitar duplicados (mismo docente + misma jornada)
+        Set<String> vistos = new HashSet<>();
+        List<DocenteJornadaInfo> resultado = new ArrayList<>();
+
+        // Ordenar: Matutina primero, Vespertina después
+        List<Horario> ordenados = horarios.stream()
+                .sorted(Comparator.comparing(Horario::getHoraInicio))
+                .toList();
+
+        for (Horario h : ordenados) {
+            String jornada = determinarJornada(h.getHoraInicio());
+            String clave = h.getDocente().getId() + "-" + jornada;
+            if (vistos.add(clave)) {
+                resultado.add(new DocenteJornadaInfo(
+                        h.getDocente().getId(),
+                        h.getDocente().getNombre(),
+                        jornada
+                ));
+            }
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Convierte una entidad Materia a su DTO de respuesta,
+     * incluyendo la lista de docentes por jornada.
+     */
+    private MateriaResponse toResponse(Materia materia, List<Horario> horarios) {
+        List<DocenteJornadaInfo> docentesPorJornada = extraerDocentesPorJornada(horarios);
+
         return new MateriaResponse(
                 materia.getId(),
                 materia.getNombre(),
@@ -157,7 +182,8 @@ public class MateriaService {
                 materia.getCreditos(),
                 materia.getNivel(),
                 materia.getDocente() != null ? materia.getDocente().getId() : null,
-                materia.getDocente() != null ? materia.getDocente().getNombre() : null
+                materia.getDocente() != null ? materia.getDocente().getNombre() : null,
+                docentesPorJornada
         );
     }
 }

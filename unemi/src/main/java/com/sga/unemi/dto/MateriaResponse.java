@@ -1,5 +1,6 @@
 package com.sga.unemi.dto;
 
+import java.util.List;
 import java.util.UUID;
 
 public class MateriaResponse {
@@ -11,9 +12,11 @@ public class MateriaResponse {
     private String nivel;
     private UUID docenteId;
     private String docenteNombre;
+    private List<DocenteJornadaInfo> docentesPorJornada;
 
     public MateriaResponse(UUID id, String nombre, String codigo, int creditos, String nivel,
-                            UUID docenteId, String docenteNombre) {
+                            UUID docenteId, String docenteNombre,
+                            List<DocenteJornadaInfo> docentesPorJornada) {
         this.id = id;
         this.nombre = nombre;
         this.codigo = codigo;
@@ -21,6 +24,7 @@ public class MateriaResponse {
         this.nivel = nivel;
         this.docenteId = docenteId;
         this.docenteNombre = docenteNombre;
+        this.docentesPorJornada = docentesPorJornada;
     }
 
     public UUID getId() { return id; }
@@ -30,4 +34,5 @@ public class MateriaResponse {
     public String getNivel() { return nivel; }
     public UUID getDocenteId() { return docenteId; }
     public String getDocenteNombre() { return docenteNombre; }
+    public List<DocenteJornadaInfo> getDocentesPorJornada() { return docentesPorJornada; }
 }

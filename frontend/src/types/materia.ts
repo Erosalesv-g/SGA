@@ -6,6 +6,12 @@ export interface MateriaRequest {
   docenteId: string | null;
 }
 
+export interface DocenteJornadaInfo {
+  docenteId: string;
+  docenteNombre: string;
+  jornada: string;
+}
+
 export interface MateriaResponse {
   id: string;
   nombre: string;
@@ -14,4 +20,5 @@ export interface MateriaResponse {
   nivel: string | null;
   docenteId: string | null;
   docenteNombre: string | null;
+  docentesPorJornada: DocenteJornadaInfo[];
 }
