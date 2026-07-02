@@ -217,7 +217,7 @@ function Horarios() {
                 <label>Materia</label>
                 <select name="materiaId" value={form.materiaId} onChange={handleChange} required>
                   {materias.map((m) => (
-                    <option key={m.id} value={m.id}>{m.nombre}</option>
+                    <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) - {m.nivel}</option>
                   ))}
                 </select>
               </div>
